@@ -27,11 +27,9 @@
 
 4. Available datasets
 
-4.1 For Kaggle dataset, download data from [link](https://www.kaggle.com/datasets/blessondensil294/topic-modeling-for-research-articles?select=test.csv)
-
-4.2 For TinyStories, download from [link](https://huggingface.co/datasets/roneneldan/TinyStories)
-
-4.3 For BBCNews, download from [link](http://mlg.ucd.ie/datasets/bbc.html)
+  - For Kaggle dataset, download data from [link](https://www.kaggle.com/datasets/blessondensil294/topic-modeling-for-research-articles?select=test.csv)
+  - For TinyStories, download from [link](https://huggingface.co/datasets/roneneldan/TinyStories)
+  - For BBCNews, download from [link](http://mlg.ucd.ie/datasets/bbc.html)
 
 5. Copy all the .npz files generated to the *data folder*
 
@@ -42,33 +40,28 @@
 ```
 
 7. Vis tool interaction:
+  * Scatter plot
+    - Click on the plot area and drag to select a region with samples
+    - Click on the plot area remove selection
+  * Tree map: blue rectangle are clusters, green rectangle are tokens
+    - Click on one cluster to select and click again to remove the selection
+    - Ctrl + click to look inside the the cluster
+    - Light-blue cluster reflect PARTIAL selection of the cluster tokens selected by the other views
+    - Very light-blue cluster reflect TOTAL selection of the cluster tokens selected by the other views
+    - Very light-green token reflect selection by the other views
+  * Texts:
+    - Click on the title (text id + label) to select the text, click again to remove the text selection
+    - Use the top-right menu to clear all text selections
 
-7.1 Scatter plot
-  a) Click on the plot area and drag to select a region with samples
-  b) Click on the plot area remove selection
-
-7.2 Tree map: blue rectangle are clusters, green rectangle are tokens
-  a) Click on one cluster to select and click again to remove the selection
-  b) Ctrl + click to look inside the the cluster
-  c) Light-blue cluster reflect PARTIAL selection of the cluster tokens selected by the other views
-  d) Very light-blue cluster reflect TOTAL selection of the cluster tokens selected by the other views
-  e) Very light-green token reflect selection by the other views
-
-7.3 Texts:
-  a) Click on the title (text id + label) to select the text, click again to remove the text selection
-  b) Use the top-right menu to clear all text selections
-
-7. Code structure
-
-7.1 Feature extractor:
- - extractor/extract_features.py
- - extractor/models.py: create_model and MyModelFamily
- - extractor/datasets.py: create_dataset and TextDataset
-
-7.2 Vis tool:
-  - server.py: load_config, filter
-  - templates/index.html
-  - static/js/client.js: document.addEventListener("DOMContentLoaded", function(){ .. })
-  - static/js/svg.js: MySVG
-  - static/js/canvas.js: MyCanvas
-  - static/css/vis.css
+8. Code structure
+  * Feature extractor:
+    - extractor/extract_features.py
+    - extractor/models.py: create_model and MyModelFamily
+    - extractor/datasets.py: create_dataset and TextDataset
+  * Vis tool:
+    - server.py: load_config, filter
+    - templates/index.html
+    - static/js/client.js: document.addEventListener("DOMContentLoaded", function(){ .. })
+    - static/js/svg.js: MySVG
+    - static/js/canvas.js: MyCanvas
+    - static/css/vis.css
