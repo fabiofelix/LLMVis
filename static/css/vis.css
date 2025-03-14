@@ -1,0 +1,238 @@
+
+/******************
+     GENERAL
+******************/
+
+.content-disabled
+{
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+#tooltip 
+{
+  position: absolute;
+  min-width: 200px;
+  height: auto;
+  padding: 10px;
+  background-color: white;
+  -webkit-border-radius: 10px;
+  -moz-border-radius: 10px;
+  border-radius: 10px;
+  -webkit-box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.4);
+  -moz-box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.4);
+  box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+
+.hidden
+{
+  display: none;
+}
+
+/******************
+  Lasso - D3.js
+******************/
+
+.lasso path  
+{
+  stroke: black;
+  stroke-width:2px;
+  stroke-opacity: 0.5;
+}
+
+.lasso .drawn 
+{
+  fill:  #2aabbc;
+  fill-opacity:.15 ;
+}
+
+/* .lasso .loop_close 
+{
+  stroke-dasharray: 4,4;
+} */
+
+.lasso .origin 
+{
+  fill-opacity:0;
+}
+
+/* .unselectedscatter 
+{
+  opacity: 0.05;
+}   */
+
+/******************
+  Force directed graph
+******************/
+
+.force-link
+{
+  stroke: #999;
+  stroke-opacity: 0.6;
+  stroke-width: 1.0;
+}
+
+.force-root
+{
+  fill: #65cddc;
+}
+
+.force-cluster
+{
+  fill:  #2aabbc;
+}
+
+.force-leaf
+{
+  /* fill: #378793; */
+  fill: #379337;  
+}
+
+.force-circle
+{
+  stroke: #fff;
+  stroke-width: 1;
+  cursor: pointer;
+}
+
+.force-selected
+{
+  stroke: black;
+  stroke-width: 2;
+}
+
+/******************
+  Edge Bundling
+******************/
+
+.bundling-link
+{
+  fill: none;
+  stroke: black;
+}
+
+.bundling-circle
+{
+  fill:  #69a3b2;
+  stroke: black;
+  opacity: .2;
+}
+
+.bundling-select
+{
+  fill:  none;
+  stroke: #69a3b2;
+  opacity: .5;
+  stroke-width: 5;
+}
+
+/******************
+  Heatmap
+******************/
+
+.heatmap-svg
+{
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 2;
+}
+
+.heatmap-select
+{
+  fill:  #69a3b2;
+  /* stroke: #69a3b2; */
+  stroke: black;  
+  opacity: .5;
+  stroke-width: 2;
+  cursor: pointer;
+}
+
+.heatmap-dragging
+{
+  cursor: move;
+} 
+
+/******************
+  Projection
+******************/
+
+.scatter-unselected
+{
+  opacity: 0.3;
+}
+
+.scatter-legend
+{
+  cursor: pointer;
+}
+
+.scatter-legend-selected
+{
+  stroke: black;
+  stroke-width: 1;
+}
+
+/******************
+  Text
+******************/
+
+#text-pagination
+{
+  margin-right: 1rem;
+}
+
+.text-pagination-item
+{
+  padding-top: 0 !important; 
+  padding-bottom: 0 !important; 
+}
+
+.text-id
+{
+  cursor: pointer; 
+}
+
+.text-selected
+{
+  background-color: #858796;
+  color: #fff;
+}
+
+/******************
+  Treemap
+******************/
+
+.treemap-rect
+{
+  stroke: #fff;
+  stroke-width: 1;
+  cursor: pointer;
+}
+
+.treemap-cluster
+{
+  fill: #17a2b8;
+}
+
+.treemap-leaf
+{
+  fill: #379337;  
+}
+
+.treemap-cluster-selected
+{
+  stroke: black;
+  stroke-width: 2;
+}
+
+.treemap-partial-selected
+{
+  fill: #65cddc;
+}
+
+.treemap-unselected
+{
+  opacity: 0.3;
+}
