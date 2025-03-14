@@ -43,14 +43,15 @@
   * Scatter plot
     - Click on the plot area and drag to select a region with samples
     - Click on the plot area remove selection
+    - Click on the class to (un)select all samples from the class 
   * Tree map: blue rectangle are clusters, green rectangle are tokens
-    - Click on one cluster to select and click again to remove the selection
-    - Ctrl + click to look inside the the cluster
+    - Click on one cluster to (un)select
+    - Ctrl+click to zoom-in(-out) the cluster
     - Light-blue cluster reflect PARTIAL selection of the cluster tokens selected by the other views
     - Very light-blue cluster reflect TOTAL selection of the cluster tokens selected by the other views
     - Very light-green token reflect selection by the other views
   * Texts:
-    - Click on the title (text id + label) to select the text, click again to remove the text selection
+    - Click on the title (text id + label) to (un)select the text
     - Use the top-right menu to clear all text selections
 
 8. Code structure
