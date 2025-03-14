@@ -256,7 +256,8 @@ class TreeMap extends MySVG
         if (target.children === undefined)
         { 
           var count_sentences = _this.selected_items.length === 0 ? target.data.sentences.length :  _this.count(_this.selected_items, target);
-          msg = target.data.id + "<p>" + count_sentences + " entries";
+          msg  = "<span class='font-weight-bold'>Token: </span>" + target.data.id;
+          msg += "<p><span class='font-weight-bold'>Sentences: </span>" + count_sentences + "</p>";
         }  
         else
         {
