@@ -74,8 +74,12 @@ class TokenInfo
         html += "<tr>";
 
         var text = data.word[i];
+        var index  = text.toLowerCase().indexOf(data.id.toLowerCase());
+        var before = text.slice(0, index);
+        var after  = text.slice(index + data.id.length);
+        var token  = text.substring(index, index + data.id.length);        
 
-        html += "<td>" + text.replace(data.id,  "<span class='word-part'>" + data.id + "</span>") + "</td>";
+        html += "<td>" + before + "<span class='word-part'>" + token + "</span>" + after + "</td>";
         html += "<td>" + data.postag[i][1] + "</td>";
         html += "<td>" + (data.named_entity[i] === null ? "" : data.named_entity[i]) + "</td>";
         html += "</tr>";
