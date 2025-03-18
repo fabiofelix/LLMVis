@@ -3,12 +3,12 @@ import sys, os, argparse, pdb, numpy as np, tqdm, torch, random
 import datasets, models, utils
 import umap
 
-from sklearn.metrics import pairwise_distances
+from sklearn.metrics import pairwise_distances, silhouette_score
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 from sklearn.cluster import KMeans, DBSCAN, AgglomerativeClustering
-from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import silhouette_score  
+
+from topic_modeling import nltk_extract_entity
 
 ##https://huggingface.co/sentence-transformers/bert-base-nli-mean-tokens
 ##https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2
@@ -105,12 +105,86 @@ def cluster_main_token(tkn_ids, tkn_feat, clusters):
     indices   = dist_feat[0].argsort()[1:6] - 1
     rep_samples.append( tkn_ids[clusters == clt][indices].tolist() )
 
-  return rep_samples  
+  return rep_samples
+
+def tag_indexOf(token, tags):
+  index = -1
+
+  for idx, tg in enumerate(tags):
+    if token in tg[0]:
+      return idx
+
+  return index
+
+def extract_token_info(tkn_ids, tkn_pos, stn_ids, text_data):
+  token_tag = []
+  token_entity = []
+  token_word = []
+  sentence_cache = {}
+  text_data = text_data.set_index("name")
+
+  for tkn, pos, stn in zip(tkn_ids, tkn_pos, stn_ids):
+    tag_aux = []
+    entity_aux = []
+    word_aux = []
+
+    for txt, p in zip(stn, pos):
+      if txt not in sentence_cache:
+        sentence_cache[txt] = {"tags": None, "entities": None, txt: None}
+        txt_aux = text_data.loc[txt].text
+        tags, entities = nltk_extract_entity(txt_aux)
+        # tags, entities = spacy_extract_entity(txt_aux)
+
+        sentence_cache[txt]["tags"] = tags
+        sentence_cache[txt]["entities"] = entities
+        sentence_cache[txt]["txt"] = txt_aux
+
+      original_word = sentence_cache[txt]["txt"][p[1][0]:p[1][1]].strip()
+      index = tag_indexOf(original_word, sentence_cache[txt]["tags"])
+
+      if index >= 0:
+        tag_aux.append(sentence_cache[txt]["tags"][index])
+        entity_aux.append(sentence_cache[txt]["entities"][index])
+        word_aux.append(original_word)
+        sentence_cache[txt]["tags"][index][0].replace(original_word, "")
+
+    token_tag.append(tag_aux)
+    token_entity.append(entity_aux)
+    token_word.append(word_aux)
+
+  return token_tag, token_entity, token_word
+
+## token:   <dataset>-<number_samples>_<model>_token_info.npz
+def save_token_info(args, token_feat, text_data, model_name, data_name, update = False):
+  print("|- Saving info (token)")
+  tkn_ids, tkn_pos, stn_ids, _ = process_token(token_feat)
+  postag, entity, word = extract_token_info(tkn_ids, tkn_pos, stn_ids, text_data)
+
+  file_path = "{}-{}_{}_token_info.npz".format(data_name, text_data.shape[0], model_name)
+  file_path = os.path.join(args.output_path, file_path)
+
+  if update:
+    update_file = np.load(file_path, allow_pickle=True)
+    update_file = dict(update_file)
+    update_file["named_entity"] = np.array(entity, dtype = object)
+    update_file["postag"] = np.array(postag, dtype = object)
+    update_file["word"] = np.array(word, dtype = object)
+    np.savez(file_path, **update_file)
+  else:  
+    np.savez(file_path, 
+            token_ids = tkn_ids, 
+            text_ids = np.array(stn_ids, dtype = object), 
+            position = np.array(tkn_pos, dtype = object),
+            postag = np.array(postag, dtype = object),
+            named_entity = np.array(entity, dtype = object),
+            word = np.array(word, dtype = object)
+           )
 
 ## cluster:   <dataset>-<number_samples>_<model>_token_cluster-<name>.npz
-def save_clusters(args, token_feat, n_sentence, model_name, data_name):
+def save_clusters(args, token_feat, n_samples, model_name, data_name):
   print("|- Saving clusters (token)")
-  tkn_ids, tkn_pos, stn_ids, tkn_avg_feat = process_token(token_feat, calc_avg=True)
+
+  tkn_ids, _, stn_ids, tkn_avg_feat = process_token(token_feat, calc_avg=True)
 
   #Sturge's rule
   n_clusters = int(1.0 + 3.322 * np.log10(len(tkn_avg_feat)))
@@ -132,15 +206,15 @@ def save_clusters(args, token_feat, n_sentence, model_name, data_name):
     clustering = model.fit(tkn_avg_feat)
     rep_cluster_tkn = cluster_main_token(tkn_ids, tkn_avg_feat, clustering.labels_)
 
-    file_path = "{}-{}_{}_token_cluster-{}.npz".format(data_name, n_sentence, model_name, alg)
+    file_path = "{}-{}_{}_token_cluster-{}.npz".format(data_name, n_samples, model_name, alg)
     file_path = os.path.join(args.output_path, file_path)
 
     np.savez(file_path, 
              token_ids = tkn_ids, 
              text_ids = np.array(stn_ids, dtype = object), 
              clusters = clustering.labels_, 
-             clusters_main_token = np.array(rep_cluster_tkn, dtype = object),
-             position = np.array(tkn_pos, dtype = object))
+             clusters_main_token = np.array(rep_cluster_tkn, dtype = object)
+             )
 
 ## projection: <dataset>-<number_samples>_<model>_sentence_proj-<projection_name>.npz
 def save_projection(args, sentence_feat, sentence_name, sentence_label, model_name, data_name):
@@ -229,6 +303,7 @@ def run(args, parser):
   # save_distances(args, sentence_feat, token_feat, text_data.name.to_numpy(), labels, str(model), str(dataset))
   save_clusters(args, token_feat, text_data.shape[0], str(model), str(dataset))
   save_projection(args, sentence_feat, text_data.name.to_numpy(), labels, str(model), str(dataset))
+  save_token_info(args, token_feat, text_data, str(model), str(dataset))
   save_text(args, text_data, str(dataset))
 
   print("|- {} samples - {} tokens".format(text_data.shape[0], len(token_feat)))

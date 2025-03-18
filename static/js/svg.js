@@ -40,9 +40,53 @@ class MySVG
   {
     throw new Error('You have to implement the method draw!');
   }
-  select(data) 
+  select(data, redraw = true) 
   {
     throw new Error('You have to implement the method select!');
+  }
+}
+
+class TokenInfo
+{
+  get_table(data, count_sentences, show_id = true)
+  {
+    var html = "";
+
+    if(show_id)
+      html  += "<p><span class='font-weight-bold'>Token: </span>" + data.id + "</p>";
+
+    html += "<p><span class='font-weight-bold'>Sentences: </span>" + count_sentences + "</p>";          
+
+    html += "<div class='table-responsive'>";
+    html += "<table class='table table-bordered' id='dataTable' width='100%' cellspacing='0'>";
+    html += "<thead><tr><th>word</th><th>POS-tag</th><th>Entity</th></tr></thead>";
+    html += "<tbody>";
+    var aux_search = [];
+
+    for(let i = 0; i < data.word.length; i++)
+    {
+      var search_key = data.word[i] + "," + data.postag[i][1] + "," + (data.named_entity[i] === null ? "" : data.named_entity[i]);
+    
+      if( aux_search.indexOf(search_key) === -1 )
+      {  
+        aux_search.push(search_key);
+        
+        html += "<tr>";
+
+        var text = data.word[i];
+
+        html += "<td>" + text.replace(data.id,  "<span class='word-part'>" + data.id + "</span>") + "</td>";
+        html += "<td>" + data.postag[i][1] + "</td>";
+        html += "<td>" + (data.named_entity[i] === null ? "" : data.named_entity[i]) + "</td>";
+        html += "</tr>";
+      }
+    }
+
+    html += "</tbody>";
+    html += "</table>"
+    html += "</div>";   
+    
+    return html;
   }
 }
 
@@ -148,15 +192,19 @@ class ScatterPlot extends MySVG
 
     return class_name;    
   }
-  select(data) 
+  select(data, redraw = true) 
   {
     var _this = this;
     this.selected_items = data;
-    this.selected_class = [];
-    this.legend.selectAll(".scatter-legend-selected").each(function(class_) { _this.selected_class.push(class_);  })
 
-    this.svg.select("g").selectAll("circle")
-      .attr("class", function (obj) { return _this.get_circle_class(obj); });    
+    if(redraw)
+    {
+      this.selected_class = [];
+      this.legend.selectAll(".scatter-legend-selected").each(function(class_) { _this.selected_class.push(class_);  })
+
+      this.svg.select("g").selectAll("circle")
+        .attr("class", function (obj) { return _this.get_circle_class(obj); });    
+    }  
   }
 }
 
@@ -166,6 +214,7 @@ class TreeMap extends MySVG
   {
     super(wrapper, tooltip);
     this.treemap = null;
+    this.token_info = new TokenInfo();
   }
   draw(data, data_summary, palette) 
   {
@@ -192,7 +241,7 @@ class TreeMap extends MySVG
 
     rect.enter()
       .append("rect")
-      .attr("id", function (obj) { console.log(obj.data.id); return obj.data.id; })
+      .attr("id", function (obj) { return obj.data.id; })
       .attr("class", function (obj) { return _this.get_rec_class(obj, this); })
       .attr('width', function (obj) { return obj.x1 - obj.x0; })
       .attr('height', function (obj) { return obj.y1 - obj.y0; })
@@ -256,15 +305,14 @@ class TreeMap extends MySVG
         if (target.children === undefined)
         { 
           var count_sentences = _this.selected_items.length === 0 ? target.data.sentences.length :  _this.count(_this.selected_items, target);
-          msg  = "<span class='font-weight-bold'>Token: </span>" + target.data.id;
-          msg += "<p><span class='font-weight-bold'>Sentences: </span>" + count_sentences + "</p>";
+          msg = _this.token_info.get_table(target.data, count_sentences);
         }  
         else
         {
           var count_token = _this.selected_items.length === 0 ? target.children.length : _this.count(_this.selected_items, target); 
-          msg  = "<span class='font-weight-bold'>ID: </span>" + target.data.id;
+          msg  = "<p><span class='font-weight-bold'>ID: </span>" + target.data.id + "</p>";
           msg += "<p><span class='font-weight-bold'>Count tokens: </span>" + count_token + "</p>";
-          msg += "<p><span class='font-weight-bold'>Main tokens: </span><span>" + target.data.main_token.join(", ") + "</span></p>";
+          msg += "<p><span class='font-weight-bold'>Main tokens: </span><span>" + target.data.main_token + "</span></p>";
         }  
 
         _this.tooltip.show(msg, [event.clientX, event.clientY]);
@@ -309,11 +357,84 @@ class TreeMap extends MySVG
 
     return class_name;    
   }
-  select(data) 
+  select(data, redraw = true) 
   {
     this.selected_items = data;
-    var _this = this;
-    this.svg.select("g").selectAll("rect")
-      .attr("class", function (obj) { return _this.get_rec_class(obj, this); });
+
+    if(redraw)
+    {
+      var _this = this;
+      this.svg.select("g").selectAll("rect")
+        .attr("class", function (obj) { return _this.get_rec_class(obj, this); });
+    }  
   }  
 }
+
+class WordCloud extends MySVG
+{
+  constructor(wrapper, tooltip) 
+  {
+    super(wrapper, tooltip);
+    this.token_info = new TokenInfo();
+    this.selected_items = [];
+  }  
+  draw(data, data_summary, palette) 
+  {
+    var _this = this;
+    this.svg = this.config_svg();
+    var group = this.svg.select("g");
+    var size_scale = d3.scaleLinear().domain([data_summary.min_freq, data_summary.max_freq]).range([20, 40]);
+    var color_scale = d3.scaleSequential(d3.interpolate("#c8eac8", "#379337")).domain([data_summary.min_freq, data_summary.max_freq]);        
+
+    var layout = d3.layout.cloud()
+    .size([+this.svg.attr("width"), +this.svg.attr("height")])
+    .words(data)
+    .padding(5)
+    .font("sans-serif")
+    .fontSize(function(d) { return size_scale(d.frequency); })
+    .on("end", function(words)
+    {
+      group
+        .attr("transform", "translate(" + layout.size()[0] / 2 + "," + layout.size()[1] / 2 + ")")
+        .selectAll("text")
+        .data(words)
+        .enter()
+        .append("text")
+        .style("font-size", function(d) { return d.size + "px"; })
+        .style("font-family", function(d) { return d.font; })
+        .style("fill", function(d) { return color_scale(d.frequency); })
+        .attr("class", "word")
+        .attr("text-anchor", "middle")
+        .attr("transform", function(d) { return "translate(" + [d.x, d.y] + ")rotate(" + d.rotate + ")"; })
+        .text(function(d) { return d.id; })
+        .on("click", function(event, target)
+        {
+          var selected = d3.select(event.target).classed("word-selected");
+          var sentences = [];
+          var position = [];
+          group.selectAll("text").classed("word-selected", false);
+
+          if(!selected)  
+          {
+            d3.select(event.target).classed("word-selected", true);
+            sentences = target.sentences;
+            position = target.position;
+          }  
+
+          _this.call_back.end(sentences, position);
+        })
+        .on("mouseover", function(event, target)
+        {
+          var msg = _this.token_info.get_table(target, target.frequency, false);
+          _this.tooltip.show(msg, [event.clientX, event.clientY]);
+        })                
+        .on("mouseout", function(event, target) { _this.tooltip.hide(); });
+    });
+    layout.start();    
+  }
+  select(data, redraw = true) 
+  {
+    this.selected_items = data;
+  }    
+}
+

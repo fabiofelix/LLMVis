@@ -8,13 +8,19 @@ def parse_obj_path(obj_path):
   split_out = obj_name.split("_")
   dataset = model = obj_type = opt = opt_type = None
 
-  if len(split_out) == 2: #text
+  ##text
+  if len(split_out) == 2: 
     dataset, obj_type = split_out
     obj_type, _ = obj_type.split(".")
   else:   
     dataset, model, obj_type, opt = split_out
-    opt, opt_type = opt.split("-")
-    opt_type, _ = opt_type.split(".")
+
+    if "-" in opt:
+      opt, opt_type = opt.split("-")
+      opt_type, _ = opt_type.split(".")
+    ##token info  
+    else: 
+      opt, _ = opt.split(".")
 
   return dataset, model, obj_type, opt, opt_type
 
@@ -27,10 +33,10 @@ def load_config():
   objects = glob.glob("data/*npz")
   objects.sort()
   #models: all models listed in the data folder
-  config = {"models": [], "projections": [], "distances": []}
+  config = {"models": []}
 
   for obj_path in objects:
-    dataset, model, obj_type, opt, opt_type = parse_obj_path(obj_path)
+    dataset, model, obj_type, _, _ = parse_obj_path(obj_path)
 
     if obj_type != "text":
       config["models"].append(dataset + "_" + model)
@@ -78,6 +84,19 @@ def process_sentence(config, obj_path, loaded_proj_stn, loaded_dist_stn, dataset
       
   return loaded_proj_stn, loaded_dist_stn       
 
+def set_token_info(config, data, type_):
+  obj = config["objs"]  
+
+  for obj in config["objs"]:
+    if obj["type"] == type_:
+      break
+
+  if obj is not None:
+    obj["data"]["position"] = data["position"].tolist()
+    obj["data"]["postag"] = data["postag"].tolist()
+    obj["data"]["named_entity"] = data["named_entity"].tolist()   
+    obj["data"]["word"] = data["word"].tolist()
+
 def process_token(config, obj_path, loaded_clust_tkn, dataset, model, obj_type, opt, opt_type):
   if opt == "cluster":
     config["clusters"].append(opt_type)
@@ -98,10 +117,37 @@ def process_token(config, obj_path, loaded_clust_tkn, dataset, model, obj_type, 
             "sentences": data["text_ids"].tolist(),
             "clusters": data["clusters"].tolist(),
             "main_token": data["clusters_main_token"].tolist(),
-            "position": data["position"].tolist()
+            "position": None,
+            "postag": None,
+            "named_entity": None,
+            "word": None
           }  
-        })  
-      
+        })
+      config["objs"].append(
+        {
+          "type": "word",
+          "name": opt_type,
+          "source": "token",
+          "ids": data["token_ids"].tolist(),
+          "label": None,
+          "topic": None,          
+          "data": {
+            "sentences": data["text_ids"].tolist(),
+            "clusters": None,
+            "main_token": None,
+            "position": None,
+            "postag": None,
+            "named_entity": None,
+            "word": None
+          }  
+        })      
+  elif opt == "info":  
+    print("|- Loading token info")
+    data = np.load(obj_path, allow_pickle=True)
+
+    set_token_info(config, data, "cluster")
+    set_token_info(config, data, "word")
+
   return loaded_clust_tkn
       
 def process_dataset_text(config, obj_path, dataset, model, obj_type, opt, opt_type):
@@ -147,9 +193,9 @@ def filter():
   if filter_type == "projection":
     filtered_objects = [ obj for obj in filtered_objects if filter_cfg["config"]["projection"] in os.path.basename(obj) ]
   elif filter_type == "distance":
-    filtered_objects = [ obj for obj in filtered_objects if filter_cfg["config"]["distance"] in os.path.basename(obj) in os.path.basename(obj) ]    
+    filtered_objects = [ obj for obj in filtered_objects if filter_cfg["config"]["distance"] in os.path.basename(obj) ]    
   elif filter_type == "cluster":
-    filtered_objects = [ obj for obj in filtered_objects if filter_cfg["config"]["cluster"] in os.path.basename(obj) in os.path.basename(obj) ]        
+    filtered_objects = [ obj for obj in filtered_objects if filter_cfg["config"]["cluster"] in os.path.basename(obj) or "token_info" in os.path.basename(obj) ]        
 
   loaded_proj_stn = False
   loaded_dist_stn = False

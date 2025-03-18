@@ -2,7 +2,7 @@
 import os, torch, string
 
 from enum import IntEnum
-from topic_modeling import load_stop_words, is_number
+from topic_modeling import load_stop_words, is_number, has_letter
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
 LLAMA_HPC_PATH = ""
@@ -97,7 +97,8 @@ class MyModelFamily():
               token in current_pos[0] and
               token not in string.punctuation and
               not is_number(token) and 
-              not token.lower() in stop_words):
+              not token.lower() in stop_words and 
+              has_letter(token)):
           
               if token not in tokens:
                 tokens[token] = {"text_ids":[], "features": [], "token_pos": []}

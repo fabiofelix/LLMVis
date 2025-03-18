@@ -6,7 +6,7 @@
   pip install -r requirements.txt
 ```
 
-3. To generate the features, run the following code
+3. Run the following code to extract the features
 
 ``` 
   python extract_features.py 
@@ -27,9 +27,9 @@
 
 4. Available datasets
 
-  - For Kaggle dataset, download data from [link](https://www.kaggle.com/datasets/blessondensil294/topic-modeling-for-research-articles?select=test.csv)
-  - For TinyStories, download from [link](https://huggingface.co/datasets/roneneldan/TinyStories)
-  - For BBCNews, download from [link](http://mlg.ucd.ie/datasets/bbc.html)
+  - [Kaggle dataset](https://www.kaggle.com/datasets/blessondensil294/topic-modeling-for-research-articles?select=test.csv) with paper abstracts
+  - [TinyStories-V2](https://huggingface.co/datasets/roneneldan/TinyStories) (generated with GPT-4) with small children stories
+  - [BBCNews](http://mlg.ucd.ie/datasets/bbc.html)
 
 5. Copy all the .npz files generated to the *data folder*
 
@@ -40,19 +40,24 @@
 ```
 
 7. Vis tool interaction:
-  * Scatter plot
+  * Scatter plot: color palette maps classes
     - Click on the plot area and drag to select a region with samples
     - Click on the plot area remove selection
-    - Click on the class to (un)select all samples from the class 
+    - Click on the class to (un)select all samples from that class
+  * Word cloud: bigger and darker words are more frequent than smaller and lighter ones
+    - Click on one token to (un)select  
+    - Mose over one token to show more information
   * Tree map: blue rectangle are clusters, green rectangle are tokens
-    - Click on one cluster to (un)select
+    - Click on one cluster/token to (un)select
     - Ctrl+click to zoom-in(-out) the cluster
+    - Mose over one cluster/token to show more information
     - Light-blue cluster reflect PARTIAL selection of the cluster tokens selected by the other views
     - Very light-blue cluster reflect TOTAL selection of the cluster tokens selected by the other views
     - Very light-green token reflect selection by the other views
   * Texts:
     - Click on the title (text id + label) to (un)select the text
     - Use the top-right menu to clear all text selections
+    - Left-most bar color maps classes
 
 8. Code structure
   * Feature extractor:

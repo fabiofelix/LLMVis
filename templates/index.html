@@ -75,7 +75,7 @@
                           <!-- Scatter Plot  -->
                           <div class="card shadow mb-4">
                               <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
-                                  <h6 class="m-0 font-weight-bold text-primary" id="projection_header">Sentence - projected space</h6>
+                                  <h6 class="m-0 font-weight-bold text-primary" id="projection_header">Text - projected space</h6>
                                   <div class="dropdown no-arrow">
                                     <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink"
                                         data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
@@ -97,7 +97,7 @@
                         <!-- Heatmap -->
                         <div class="card shadow mb-4">
                             <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
-                                <h6 class="m-0 font-weight-bold text-primary" id="distance_header">Sentence - distance (high-dimension)</h6>
+                                <h6 class="m-0 font-weight-bold text-primary" id="distance_header">Token - frequency</h6>
                                 <div class="dropdown no-arrow">
                                   <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink"
                                       data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
@@ -146,7 +146,7 @@
                         <div class="card shadow mb-4">
                             <!-- Card Header - Dropdown -->
                             <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
-                                <h6 class="m-0 font-weight-bold text-primary" id="text_header">Sentence - text</h6>
+                                <h6 class="m-0 font-weight-bold text-primary" id="text_header">Text - plain</h6>
                                 
                                 <div id="text-pagination" class="ml-auto">
                                   <ul class="list-group list-group-horizontal">
@@ -213,6 +213,7 @@
 
     <!-- Vis scripts-->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/holtzy/D3-graph-gallery@master/LIB/d3.layout.cloud.js"></script>    
     <script src="{{ url_for('static', filename='js/third.js') }}"></script>    
     <script src="{{ url_for('static', filename='js/lasso.js') }}"></script>
     <script src="{{ url_for('static', filename='js/svg.js') }}"></script>

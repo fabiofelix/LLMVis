@@ -5,9 +5,9 @@ let TOOLTIP = null;
 let LABEL_COLOR_PALETTE = null;
 
 let PROJECTION_VIEW = null;
-let DISTANCE_VIEW = null;
 let CLUSTER_VIEW = null;
 let TEXT_VIEW = null;
+let WORD_VIEW = null;
 
 // https://www.geeksforgeeks.org/how-to-execute-after-page-load-in-javascript/
 document.addEventListener("DOMContentLoaded", function()
@@ -18,7 +18,7 @@ document.addEventListener("DOMContentLoaded", function()
   FILTER = new FilterManager();
 
   PROJECTION_VIEW = new Projection("projection_list", "projection_header", "projection_chart_area");
-  // DISTANCE_VIEW = new Distance("distance_list", "distance_header", "distance_chart_area");
+  WORD_VIEW = new WordView("distance_list", "distance_header", "distance_chart_area");
   CLUSTER_VIEW = new Cluster("token_list", "token_header", "token_chart_area");
   TEXT_VIEW = new TextView("text_list", "text_header", "text_area");
 
@@ -131,6 +131,18 @@ class FilterManager
   {
     this.clear_server();
     this.clear_window();
+    this.call_back = { onset: [] };
+  }
+  addEventListener(type, call_back)
+  {
+    if (!arguments.length)
+      return this.call_back;
+    if (arguments.length === 1)
+      return this.call_back[type];
+    if (Object.keys(this.call_back).indexOf(type) > -1)
+      this.call_back[type].push(call_back);
+
+    return this;
   }
   clear_server()
   {
@@ -145,6 +157,7 @@ class FilterManager
     this.view_lasso = [];
     this.view_class = [];
     this.view_distance = [];
+    this.view_word = [];
     this.view_cluster = [];    
     this.view_text = [];
   }
@@ -172,7 +185,12 @@ class FilterManager
   set_view(filter_type, value)
   {
     if(this.hasOwnProperty("view_" + filter_type))
+    {
       this["view_" + filter_type] = value;
+
+      for(var i = 0; i < this.call_back.onset.length; i++)
+        this.call_back.onset[i](filter_type, value);
+    }  
     else 
       throw new Error("Filter has no property [view_" + filter_type + "]");  
 
@@ -302,9 +320,9 @@ class VisManager
   {
     throw new Error('You have to implement the method drawer_callback!');
   }
-  select_items(items)    
+  select_items(items, redraw = true)    
   {
-    this.drawer.select(FILTER.count(this.filter_type) === 0 ? [] : items);
+    this.drawer.select(FILTER.count(this.filter_type) === 0 ? [] : items, redraw);
   }  
 }
 
@@ -320,12 +338,11 @@ class Model extends VisManager
     this.set_header("LLM embedding visualization - " + data.models[0] );
     
     PROJECTION_VIEW.create_list(data.projections);
-    // DISTANCE_VIEW.create_list(data.distances);
     CLUSTER_VIEW.create_list(data.clusters);
     
     //Projection have to come before the others because of the LABEL_COLOR_PALETTE creation
     PROJECTION_VIEW.show(data);
-    // DISTANCE_VIEW.show(data);
+    WORD_VIEW.show(data);
     CLUSTER_VIEW.show(data);
     TEXT_VIEW.show(data);
   }  
@@ -337,6 +354,7 @@ class Projection extends VisManager
   {
     super(div_list_id, header_id, chart_id);
     this.filter_type = "projection";
+    this.secondary_filter_type = ["lasso", "class"];
     this.source_type = "sentence";
     this.drawer = new ScatterPlot(chart_id, TOOLTIP);
     var _this = this;
@@ -350,7 +368,7 @@ class Projection extends VisManager
       .filter(function(value, index, array) { return array.indexOf(value) === index; });
     text_ids = FILTER.set_view(second_filter_type, text_ids).get_view();
 
-    // DISTANCE_VIEW.select_items(text_ids);
+    WORD_VIEW.select_items(text_ids);
     CLUSTER_VIEW.select_items(text_ids);
     TEXT_VIEW.select_items(text_ids);
 
@@ -359,7 +377,7 @@ class Projection extends VisManager
   show(data, clean=true)
   {
     var objs = this.extract_data(data.objs);
-    this.set_header("Sentence - " + objs.data.length + " samples - " + objs.name + " - sh: " + objs.silhouette.toFixed(4) );
+    this.set_header("Text - " + objs.data.length + " samples - " + objs.name + " - sh: " + objs.silhouette.toFixed(4) );
     var sum = {min_x: Number.MAX_VALUE, min_y: Number.MAX_VALUE, max_x: Number.MIN_VALUE, max_y: Number.MIN_VALUE};
     var unique_label = [];
 
@@ -415,7 +433,7 @@ class Distance extends VisManager
   show(data, clean=true)
   {
     var objs = this.extract_data(data.objs);
-    this.set_header("Sentence - " + objs.name + " (high-dimension)" + " - sh: " + objs.silhouette.toFixed(4));
+    this.set_header("Text - " + objs.name + " (high-dimension)" + " - sh: " + objs.silhouette.toFixed(4));
     var sum = {min_value: Number.MAX_VALUE, max_value: Number.MIN_VALUE, n_row: objs.data.length, n_col: objs.data.length};
 
     var formated_objs = []
@@ -437,6 +455,114 @@ class Distance extends VisManager
 
     this.drawer.draw(formated_objs, sum, null);
   }
+}
+
+class WordView extends VisManager
+{
+  constructor(div_list_id, header_id, chart_id)
+  {
+    super(div_list_id, header_id, chart_id);
+    this.filter_type = "word";
+    this.source_type = "token";    
+    this.drawer = new WordCloud(chart_id, TOOLTIP);
+    this.words = null;
+    var _this = this;
+    this.drawer.on("end", function(data, position){ _this.drawer_callback(data, position); });
+    FILTER.addEventListener("onset", function(filter_type, value)
+    {
+      if(filter_type !== _this.filter_type && value.length === 0)
+      {
+        var text_id = FILTER.set_view(_this.filter_type, []).get_view();
+
+        PROJECTION_VIEW.select_items(text_id, PROJECTION_VIEW.secondary_filter_type.indexOf(filter_type) !== -1);
+        CLUSTER_VIEW.select_items(text_id, CLUSTER_VIEW.filter_type === filter_type);
+        TEXT_VIEW.select_items(text_id, TEXT_VIEW.filter_type === filter_type);
+      }  
+    });
+  }  
+  drawer_callback(data, position)
+  {
+    var data_filtered = FILTER.set_view(this.filter_type, data).get_view();
+    var text_ids = {};
+
+    for(var i = 0; i < data.length; i++)
+    {
+      if(data_filtered.indexOf(data[i]) !== -1)
+      {
+        if(Object.keys(text_ids).indexOf(data[i]) == -1) 
+          text_ids[data[i]] = [];
+
+        text_ids[data[i]].push( position[i] );
+      } 
+    }    
+    
+    PROJECTION_VIEW.select_items(Object.keys(text_ids) == 0 ? data_filtered : Object.keys(text_ids));
+    CLUSTER_VIEW.select_items(Object.keys(text_ids) == 0 ? data_filtered : Object.keys(text_ids));
+    TEXT_VIEW.select_items(Object.keys(text_ids) == 0 ? data_filtered : text_ids);
+  }  
+  zipf_law(words)
+  {
+    var samples = 50;
+    var min_freq = 0.05;
+    var max_freq = 0.95;
+    var max_norm_factor = words[words.length - 1].frequency;
+    var filtered = words;
+    
+    if(words[0].frequency !== words[words.length - 1].frequency)
+      filtered = words.filter(function(item) { return item.frequency / max_norm_factor > min_freq && item.frequency / max_norm_factor < max_freq; });
+
+    return filtered.length > samples ? filtered.slice(-samples) : filtered;    
+  }    
+  show(data, clean=true)
+  {
+    var objs = this.extract_data(data.objs);
+    this.words = objs.ids
+    .map(function(value, index)
+    {
+      return {
+        id: value, 
+        text: value,
+        frequency: objs.data.sentences[index].length, 
+        sentences: objs.data.sentences[index],
+        position: objs.data.position[index], 
+        named_entity: objs.data.named_entity[index], 
+        postag: objs.data.postag[index],
+        word: objs.data.word[index],      
+      };
+    })
+    .sort(function(a, b) { return a.frequency - b.frequency; })
+    
+    var filtered = this.zipf_law(this.words);
+    this.set_header("Token - " + filtered.length + " samples more frequent");
+    
+    this.drawer.draw(filtered, {min_freq: filtered[0].frequency, max_freq: filtered[filtered.length - 1].frequency});
+  }
+  select_items(items, redraw = true)
+  {
+    var filtered = this.words;
+
+    if (FILTER.count(this.filter_type) != 0)
+    {
+      filtered = this.words
+       .map(function(item) {  return Object.assign({}, item); })
+       .filter(function(value, index, array)
+       { 
+          value.frequency = value.sentences
+            .filter(function(stn) {  return items.indexOf(stn) !== -1;  })
+            .length;
+          return value.frequency > 0;
+       })
+       .sort(function(a, b) { return a.frequency - b.frequency; });
+    }
+
+    filtered = this.zipf_law(filtered);
+    this.set_header("Token - " + filtered.length + " samples more frequent");
+
+    if(filtered.length === 0)
+      this.drawer.draw(filtered, {min_freq: 0, max_freq: 0});
+    else
+      this.drawer.draw(filtered, {min_freq: filtered[0].frequency, max_freq: filtered[filtered.length - 1].frequency});
+  }    
 }
 
 class Cluster extends VisManager
@@ -467,9 +593,9 @@ class Cluster extends VisManager
         text_ids[data[i]].push( position[i] );
       } 
     }    
-
+    
     PROJECTION_VIEW.select_items(Object.keys(text_ids) == 0 ? data_filtered : Object.keys(text_ids));
-    // DISTANCE_VIEW.select_items(Object.keys(text_ids));
+    WORD_VIEW.select_items(Object.keys(text_ids) == 0 ? data_filtered : Object.keys(text_ids));
     TEXT_VIEW.select_items(Object.keys(text_ids) == 0 ? data_filtered : text_ids);
   }  
   show(data, clean=true)
@@ -490,7 +616,14 @@ class Cluster extends VisManager
 
       token_indices.forEach(function(index)
       {
-        cluster.children.push({ id: objs.ids[index], sentences: objs.data.sentences[index],  position: objs.data.position[index]  });
+        cluster.children.push({ 
+          id: objs.ids[index], 
+          sentences: objs.data.sentences[index],  
+          position: objs.data.position[index], 
+          named_entity: objs.data.named_entity[index], 
+          postag: objs.data.postag[index],
+          word: objs.data.word[index],
+         });
       });
 
       tree.children.push(cluster);      
@@ -577,6 +710,7 @@ class TextView extends VisManager
       var text_id = FILTER.set_view(_this.filter_type, []).get_view();
 
       PROJECTION_VIEW.select_items(text_id);
+      WORD_VIEW.select_items(text_id);
       CLUSTER_VIEW.select_items(text_id);    
     });    
   }
@@ -601,6 +735,7 @@ class TextView extends VisManager
     text_id = FILTER.set_view(this.filter_type, text_id).get_view();
 
     PROJECTION_VIEW.select_items(text_id);
+    WORD_VIEW.select_items(text_id);
     CLUSTER_VIEW.select_items(text_id);    
   }
   get_unique_token(text_tokens)
@@ -638,15 +773,8 @@ class HighlightText
 {
   execute(original_text, text_tokens, html_tag)
   { 
-    text_tokens.sort(function(a, b)
-    {unique_token_id
-      if (a[1][0] < b[1][0])
-        return -1;
-      else if (a[1][0] > b[1][0])
-        return 1;
-
-      return 0;
-    });
+    //text_tokens: list of [token, [start pos, end pos]]
+    text_tokens.sort(function(a, b) { return a[1][0] - b[1][0]; });
     var unique_token_id = text_tokens
       .map(function(obj){ return obj[0]; })
       .filter(function(value, index, array){ return array.indexOf(value) === index; })

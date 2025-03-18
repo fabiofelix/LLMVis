@@ -236,3 +236,25 @@
 {
   opacity: 0.3;
 }
+
+/******************
+  Word cloud
+******************/
+
+.word
+{
+  cursor: pointer; 
+}
+
+.word-selected
+{
+  cursor: pointer; 
+  font-weight: bold;
+  stroke: #858796;
+  stroke-width:1px;
+}
+
+.word-part
+{
+  background-color: #c8eac8; 
+}

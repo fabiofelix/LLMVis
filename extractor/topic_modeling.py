@@ -1,4 +1,4 @@
-import os, numpy as np, string, re, tqdm, nltk, utils
+import os, numpy as np, string, re, tqdm, nltk, utils#, spacy
 
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
@@ -11,6 +11,12 @@ nltk.data.path.append(os.path.join(utils.main_cache_path, "llm", "nltk_data"))
 nltk.download("punkt_tab", download_dir = os.path.join(utils.main_cache_path, "llm", "nltk_data"))
 nltk.download('stopwords', download_dir = os.path.join(utils.main_cache_path, "llm", "nltk_data"))
 nltk.download('wordnet', download_dir = os.path.join(utils.main_cache_path, "llm", "nltk_data"))
+
+#============== tagging and ner ==============#
+nltk.download('averaged_perceptron_tagger_eng', download_dir = os.path.join(utils.main_cache_path, "llm", "nltk_data"))
+nltk.download('maxent_ne_chunker_tab', download_dir = os.path.join(utils.main_cache_path, "llm", "nltk_data"))
+nltk.download('words', download_dir = os.path.join(utils.main_cache_path, "llm", "nltk_data"))  
+nltk.download('tagsets_json', download_dir = os.path.join(utils.main_cache_path, "llm", "nltk_data"))
 
 def load_stop_words():
   stop_words = stopwords.words('english')
@@ -27,6 +33,53 @@ def is_number(value):
   number_pattern = "^(?:-(?:[1-9](?:\\d{0,2}(?:,\\d{3})+|\\d*))|(?:0|(?:[1-9](?:\\d{0,2}(?:,\\d{3})+|\\d*))))(?:.\\d+|)$"
 
   return re.match(number_pattern, value) is not None
+
+def has_letter(value):
+  letter_patern = '[a-zA-Z]'
+
+  return re.search(letter_patern, value) is not None
+
+## https://fouadroumieh.medium.com/nlp-entity-extraction-ner-using-python-nltk-68649e65e54b
+def nltk_extract_entity(text):
+  tokens = text
+
+  if isinstance(text, str):
+    tokens = nltk.word_tokenize(text)
+    
+  tagged_tokens = nltk.pos_tag(tokens)
+  entity_tree = nltk.ne_chunk(tagged_tokens)
+  tags = []
+  entity_list = []
+  tag_desc = open(os.path.join(utils.main_cache_path, "llm", "nltk_data", "help/tagsets_json/PY3_json/upenn_tagset.json"))
+  tag_desc = json.load(tag_desc)
+
+  for subtree in entity_tree:
+    if isinstance(subtree, nltk.tree.Tree):
+      for leaf in subtree.leaves():
+        desc = tag_desc[leaf[1]][0] + " (" + leaf[1] + ")" if leaf[1] in tag_desc else leaf[1]
+        tags.append( (leaf[0], desc)  )
+        entity_list.append(subtree.label())
+    else:
+      desc = tag_desc[subtree[1]][0] + " (" + subtree[1] + ")" if subtree[1] in tag_desc else subtree[1]
+      tags.append( (subtree[0], desc)  )
+      entity_list.append(None)
+
+  return tags, entity_list
+
+## https://spacy.io/
+# def spacy_extract_entity(text):
+#   nlp = spacy.load("en_core_web_sm")
+#   doc = nlp(text)
+#   tags = []
+#   entity_list = []
+#
+#   entity_map = {ent.text: ent.label_ for ent in doc.ents  }
+#
+#   for token in doc:
+#     tags.append((token.text, token.tag_ + " (" + spacy.glossary.explain(token.tag_) + ")" ))
+#     entity_list.append( entity_map[token.text] if token.text in entity_map else None )
+#
+#   return tags, entity_list
 
 class TopicModeling:
   def __init__(self):
