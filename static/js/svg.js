@@ -74,10 +74,12 @@ class TokenInfo
         html += "<tr>";
 
         var text = data.word[i];
-        var index  = text.toLowerCase().indexOf(data.id.toLowerCase());
+
+        var id     = data.id.trim()
+        var index  = text.toLowerCase().indexOf(id.toLowerCase());
         var before = text.slice(0, index);
-        var after  = text.slice(index + data.id.length);
-        var token  = text.substring(index, index + data.id.length);        
+        var after  = text.slice(index + id.length);
+        var token  = text.substring(index, index + id.length);        
 
         html += "<td>" + before + "<span class='word-part'>" + token + "</span>" + after + "</td>";
         html += "<td>" + data.postag[i][1] + "</td>";
@@ -442,3 +444,223 @@ class WordCloud extends MySVG
   }    
 }
 
+class SankyDiagram extends MySVG 
+{
+  constructor(wrapper, tooltip) 
+  {
+    super(wrapper, tooltip);
+    this.group = null;
+    this.token_info = new TokenInfo();
+    this.selected_items = [];
+    this.selected_classes = [];
+    this.stn2class = null;
+    this.margin = {top: 5, bottom: 5, left: 5, right: 5, text_offset: 6};
+  }
+  update_link(links)
+  {
+    var _this = this;
+    var lines = this.group
+      .append("g")
+      .attr("id", "links")
+      .selectAll(".sunkey-link")
+      .data(links, function(d) { return  d.source.id + "_" + d.source.type + ":" + d.target.id + "_" + d.target.type; });
+
+    lines.exit().remove();
+
+    lines.enter()
+      .append("path")
+      .attr("class", function (obj) { return _this.get_link_class(obj); })
+      .attr("d", d3.sankeyLinkHorizontal())
+      .attr("stroke-width", function(d) { return d.width; })
+      .on("mouseover", function (event, target) 
+      {
+        var msg = "<p><span class='font-weight-bold'>Mean abs. score: </span>" + target.value.toFixed(5) + "</p>";
+       _this.tooltip.show(msg, [event.clientX, event.clientY]);
+
+      })
+      .on("mouseout", function (event, target) { _this.tooltip.hide(); });            
+  }
+  update_node(sankey, nodes, palette)
+  {
+    var _this = this;
+    var node = this.group
+      .append("g")
+      .attr("id", "nodes")
+      .selectAll(".sunkey-node")
+      .data(nodes, function(d){ return d.id + "_" + d.type; })
+
+    // node.exit().remove();
+
+    .enter()
+      .append("g")
+      .attr("class", "sunkey-node");  
+
+    node.append("rect")
+      .attr("class", function (obj) { return _this.get_node_class(obj) })
+      .attr("x", function(d) { return d.x0; })
+      .attr("y", function(d) { return d.y0; })
+      .attr("height", function(d) { return d.y1 - d.y0; })
+      .attr("width", sankey.nodeWidth())
+      .style("fill", function(d) { return d.type == "class" ? d.color = palette(d.id) : d.color = "#91b691"; })
+      .on("click", function (event, target) 
+      {
+        var sentence_ids = [];
+        var position = [];
+        
+        var selected = d3.select(event.target).classed("sunkey-node-selected");
+        _this.group.selectAll("rect").classed("sunkey-node-selected", false);
+        _this.group.selectAll("path").classed("sunkey-link-selected", false);
+        
+        if (!selected) 
+        {
+          d3.select(event.target).classed("sunkey-node-selected", true);
+
+          if(target.type === "token")
+          {
+            _this.group.selectAll("path").each(function(obj, i, array)
+            {
+              d3.select(array[i]).classed("sunkey-link-selected", obj.target.id === target.id);
+
+              if(obj.target.id === target.id)
+              {  
+                var filtered_sentences = _this.stn2class
+                  .filter(function(item) { return item.label === obj.source.id; })
+                  .map(function(item){ return item.sentence_id; });
+
+                target.sentences.forEach(function(stn, j)
+                {
+                  if(filtered_sentences.indexOf(stn) > -1)
+                  {
+                    sentence_ids.push(stn);
+                    position.push(target.position[j]);
+                  }
+                });
+              }              
+            });
+          }
+          else
+          {
+            var filtered_sentences = _this.stn2class
+              .filter(function(item) { return item.label === target.id; })
+              .map(function(item){ return item.sentence_id; });
+              
+            _this.group.selectAll("path").each(function(obj, i, array)
+            {
+              d3.select(array[i]).classed("sunkey-link-selected", obj.source.id === target.id);
+
+              if(obj.source.id === target.id)
+              {  
+                obj.target.sentences.forEach(function(stn, j)
+                {
+                  if(filtered_sentences.indexOf(stn) > -1)
+                  {
+                    sentence_ids.push(stn);
+                    position.push(obj.target.position[j]);
+                  }
+                });
+              }
+            });
+
+            if(sentence_ids.length === 0)
+              sentence_ids = filtered_sentences;
+          }
+        }
+
+        _this.call_back.end(sentence_ids, position);
+      })
+      .on("mouseover", function (event, target) 
+      {
+        var msg = "";
+
+        if(target.type === "token")
+        { 
+          // var count_sentences = _this.selected_items.length === 0 ? target.data.sentences.length :  _this.count(_this.selected_items, target);
+          // var count_sentences = 0;
+          // msg = _this.token_info.get_table(target, count_sentences);
+
+          // _this.tooltip.show(msg, [event.clientX, event.clientY]);
+        }  
+      })
+      .on("mouseout", function (event, target) { _this.tooltip.hide(); });      
+
+    node
+      .append("text")
+      .attr("x", function(d) { return d.x0 - _this.margin.text_offset; })
+      .attr("y", function(d) { return (d.y1 + d.y0) / 2; })
+      .attr("text-anchor", "end")
+      .text(function(d) { return d.id; })
+      .filter(function(d) { return d.x0 < (+_this.svg.attr("width") - _this.margin.left - _this.margin.right) / 2; })
+      .attr("x", function(d) { return d.x1 + _this.margin.text_offset; })
+      .attr("text-anchor", "start");                
+  }
+  draw(data, data_summary, palette) 
+  {
+    this.svg = this.config_svg();
+    this.group = this.svg.select("g")
+      .attr("transform", "translate(" + this.margin.left + "," + this.margin.top + ")");            
+    this.stn2class = data.sentences;  
+
+    var sankey = d3.sankey()
+      .nodeWidth(20)
+      .nodePadding(10)
+      .size([+this.svg.attr("width") - this.margin.left - this.margin.right, 
+             +this.svg.attr("height") - this.margin.top - this.margin.bottom]);
+
+    sankey.nodeAlign(function(node, n){ return node.type == "class" || node.sourceLinks.length ? node.depth : n - 1; });
+    var graph = sankey(data);
+
+    this.update_link(graph.links);
+    this.update_node(sankey, graph.nodes, palette);
+  }
+  count(selected_items, obj)
+  {
+    if(obj.type == "class")
+      return obj.sourceLinks.filter(function(item)
+      {
+        return item.target.sentences
+        .filter(function (sentence_id, k) { return selected_items.indexOf(sentence_id) !== -1; })
+        .length > 0;        
+      })
+      .length;
+    else
+    return obj.sentences
+      .filter(function (sentence_id, k) { return selected_items.indexOf(sentence_id) !== -1; })
+      .length > 0;  
+  }
+  get_node_class(obj)
+  {
+    var class_name = "";
+
+    if(obj.type === "class" && this.selected_classes.length > 0 && this.selected_classes.indexOf(obj.id) !== -1)
+      class_name = "sunkey-node-selected";
+
+    return class_name;
+  }
+  get_link_class(obj)
+  {
+    var class_ = "sunkey-link";
+
+    if(this.selected_classes.length > 0 && this.selected_classes.indexOf(obj.source.id) !== -1)
+      class_ += " sunkey-link sunkey-link-selected"; 
+
+    return class_;
+  }
+  select(data, redraw = true) 
+  {
+    this.selected_items = data;
+
+    if(redraw)
+    {
+      var _this = this;
+      this.selected_classes = this.stn2class
+        .filter(function(obj){ return _this.selected_items.indexOf(obj.sentence_id) !== -1;  })
+        .map(function(obj){ return obj.label; });
+
+      this.svg.select("g").selectAll("rect")
+        .attr("class", function (obj) { return _this.get_node_class(obj) });        
+
+      this.svg.select("g").selectAll("path")
+        .attr("class", function (obj) { return _this.get_link_class(obj); });
+    } 
+  }
+}

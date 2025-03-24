@@ -258,3 +258,46 @@
 {
   background-color: #c8eac8; 
 }
+
+/******************
+  Sankey diagram
+******************/
+
+.sunkey-link 
+{
+  fill: none;
+  stroke: #000;
+  stroke-opacity: .2;
+}
+
+.sunkey-link:hover,.sunkey-link-selected
+{
+  stroke-opacity: .5;
+}
+
+.sunkey-node rect
+{
+  fill-opacity: .9;
+  shape-rendering: crispEdges;  
+  /* stroke: #000; */
+  stroke: #999999;
+  stroke-width: 1;
+  cursor: pointer; 
+}
+
+.sunkey-node-selected
+{
+  stroke: #000 !important;
+  stroke-width: 2 !important;
+}
+
+.sunkey-node-unselected
+{
+  opacity: 0.3;
+}
+
+.sunkey-node text 
+{
+  pointer-events: none;
+  text-shadow: 0 1px 0 #fff;
+}

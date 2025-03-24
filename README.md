@@ -33,7 +33,7 @@
 
 5. Copy all the .npz files generated to the *data folder*
 
-6. Run the following command to run *server.py* code and open the *Running on* link on the browser
+6. Run the following command to run *server.py* code inside the right environment and open the *Running on* link on the browser
 
 ```
   flask --app server run --debug

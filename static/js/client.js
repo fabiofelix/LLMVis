@@ -5,9 +5,9 @@ let TOOLTIP = null;
 let LABEL_COLOR_PALETTE = null;
 
 let PROJECTION_VIEW = null;
-let CLUSTER_VIEW = null;
 let TEXT_VIEW = null;
 let WORD_VIEW = null;
+let EXPLANATION_VIEW = null;
 
 // https://www.geeksforgeeks.org/how-to-execute-after-page-load-in-javascript/
 document.addEventListener("DOMContentLoaded", function()
@@ -19,7 +19,7 @@ document.addEventListener("DOMContentLoaded", function()
 
   PROJECTION_VIEW = new Projection("projection_list", "projection_header", "projection_chart_area");
   WORD_VIEW = new WordView("distance_list", "distance_header", "distance_chart_area");
-  CLUSTER_VIEW = new Cluster("token_list", "token_header", "token_chart_area");
+  EXPLANATION_VIEW = new Explanation("token_list", "token_header", "token_chart_area")  
   TEXT_VIEW = new TextView("text_list", "text_header", "text_area");
 
   fetch("/config")
@@ -56,21 +56,21 @@ class Tooltip
   {
     this.msg.innerHTML = text;
 
-    var x_offset = 5, y_offset = 5,
-      x = position[0] + x_offset,
-      y = position[1] + y_offset;
+    var x_offset = 3, y_offset = 3,
+        x = position[0] + x_offset,
+        y = position[1] + y_offset;
 
-    if(x + this.div.clientWidth >= this.div.clientWidth)    
-      x = position[0] - x_offset - this.div.clientWidth;
-    if(y + this.div.clientHeight >= this.div.clientHeight)    
-      y = position[1] - y_offset - this.div.clientHeight;        
+    this.div.classList.remove("hidden");
+
+    if(x + this.div.clientWidth >= window.innerWidth)    
+      x = window.innerWidth - this.div.clientWidth;
+    if(y + this.div.clientHeight >= window.innerHeight)    
+      y = window.innerHeight - this.div.clientHeight;
     else if(y + this.div.clientHeight < 0)
       y = position[1];
 
     this.div.style.left = x + "px";
     this.div.style.top = y + "px";
-
-    this.div.classList.remove("hidden");   
   }
   hide()
   {
@@ -150,6 +150,7 @@ class FilterManager
     this.server_projection = null;
     this.server_distance = null;
     this.server_cluster = null;
+    this.server_explanation = null;
   }
   clear_window()
   {
@@ -160,6 +161,7 @@ class FilterManager
     this.view_word = [];
     this.view_cluster = [];    
     this.view_text = [];
+    this.view_explanation = [];
   }
   set_server(filter_type, value)
   {
@@ -180,7 +182,15 @@ class FilterManager
       return null;
     }  
 
-    return {"model": this.server_model, "projection":  this.server_projection, "distance": this.server_distance, "cluster": this.server_cluster};
+    var keys = Object.keys(this).filter(function(value) {  return value.includes("server_")  });
+    var config = {};
+
+    for(var k = 0; k < keys.length; k++)
+    {
+      config[ keys[k].split("_")[1] ] = this[keys[k]];
+    }    
+
+    return config;
   }
   set_view(filter_type, value)
   {
@@ -338,12 +348,12 @@ class Model extends VisManager
     this.set_header("LLM embedding visualization - " + data.models[0] );
     
     PROJECTION_VIEW.create_list(data.projections);
-    CLUSTER_VIEW.create_list(data.clusters);
+    EXPLANATION_VIEW.create_list(data.explanations);
     
     //Projection have to come before the others because of the LABEL_COLOR_PALETTE creation
     PROJECTION_VIEW.show(data);
     WORD_VIEW.show(data);
-    CLUSTER_VIEW.show(data);
+    EXPLANATION_VIEW.show(data);
     TEXT_VIEW.show(data);
   }  
 }
@@ -361,6 +371,11 @@ class Projection extends VisManager
     this.drawer.on("end", function(data, second_filter_type){ return _this.drawer_callback(data, second_filter_type); });
     this.label = null;
     this.topic = null;
+    this.sentences_ = null;
+  }
+  get sentences()
+  {
+    return this.sentences_;
   }
   drawer_callback(data, second_filter_type)
   {
@@ -369,7 +384,7 @@ class Projection extends VisManager
     text_ids = FILTER.set_view(second_filter_type, text_ids).get_view();
 
     WORD_VIEW.select_items(text_ids);
-    CLUSTER_VIEW.select_items(text_ids);
+    EXPLANATION_VIEW.select_items(text_ids);
     TEXT_VIEW.select_items(text_ids);
 
     return text_ids;
@@ -387,6 +402,7 @@ class Projection extends VisManager
       this.topic = objs.topic;   
 
     var _this = this; 
+    this.sentences_ = [];
 
     var formated_objs = objs.data.map(function(value, idx)
     {
@@ -401,6 +417,7 @@ class Projection extends VisManager
       if(unique_label.indexOf(label) == -1)
         unique_label.push(label);
 
+      _this.sentences_.push({sentence_id: objs.ids[idx], label: label});
       return {sentence_id: objs.ids[idx], x: value[0], y: value[1], label: label};
     });
 
@@ -427,7 +444,7 @@ class Distance extends VisManager
     text_ids = FILTER.set_view(this.filter_type, text_ids).get_view();
     
     PROJECTION_VIEW.select_items(text_ids);
-    CLUSTER_VIEW.select_items(text_ids);
+    EXPLANATION_VIEW.select_items(text_ids);
     TEXT_VIEW.select_items(text_ids);
   }  
   show(data, clean=true)
@@ -475,7 +492,7 @@ class WordView extends VisManager
         var text_id = FILTER.set_view(_this.filter_type, []).get_view();
 
         PROJECTION_VIEW.select_items(text_id, PROJECTION_VIEW.secondary_filter_type.indexOf(filter_type) !== -1);
-        CLUSTER_VIEW.select_items(text_id, CLUSTER_VIEW.filter_type === filter_type);
+        EXPLANATION_VIEW.select_items(text_id, EXPLANATION_VIEW.filter_type === filter_type);
         TEXT_VIEW.select_items(text_id, TEXT_VIEW.filter_type === filter_type);
       }  
     });
@@ -497,7 +514,7 @@ class WordView extends VisManager
     }    
     
     PROJECTION_VIEW.select_items(Object.keys(text_ids) == 0 ? data_filtered : Object.keys(text_ids));
-    CLUSTER_VIEW.select_items(Object.keys(text_ids) == 0 ? data_filtered : Object.keys(text_ids));
+    EXPLANATION_VIEW.select_items(Object.keys(text_ids) == 0 ? data_filtered : Object.keys(text_ids));
     TEXT_VIEW.select_items(Object.keys(text_ids) == 0 ? data_filtered : text_ids);
   }  
   zipf_law(words)
@@ -565,16 +582,16 @@ class WordView extends VisManager
   }    
 }
 
-class Cluster extends VisManager
+class Explanation extends VisManager
 {
   constructor(div_list_id, header_id, chart_id)
   {
     super(div_list_id, header_id, chart_id);
-    this.filter_type = "cluster";
-    this.source_type = "token";
-    this.drawer = new TreeMap(chart_id, TOOLTIP);    
+    this.filter_type = "explanation";
+    this.source_type = "class";
+    this.drawer = new SankyDiagram(chart_id, TOOLTIP);
     var _this = this;
-    this.drawer.on("end", function(data, position){ _this.drawer_callback(data, position); });
+    this.drawer.on("end", function(data, position){ _this.drawer_callback(data, position); });    
   }
   drawer_callback(data, position)
   {
@@ -590,46 +607,93 @@ class Cluster extends VisManager
         if(Object.keys(text_ids).indexOf(data[i]) == -1) 
           text_ids[data[i]] = [];
 
-        text_ids[data[i]].push( position[i] );
+        if(position.length > 0)
+          text_ids[data[i]].push( position[i] );
       } 
     }    
     
     PROJECTION_VIEW.select_items(Object.keys(text_ids) == 0 ? data_filtered : Object.keys(text_ids));
     WORD_VIEW.select_items(Object.keys(text_ids) == 0 ? data_filtered : Object.keys(text_ids));
     TEXT_VIEW.select_items(Object.keys(text_ids) == 0 ? data_filtered : text_ids);
-  }  
+  }    
   show(data, clean=true)
-  {
+  { 
     var objs = this.extract_data(data.objs);
-    this.set_header("Token - " + objs.ids.length + " samples - " + objs.name);
+    this.set_header("Class - " + objs.ids.length + " samples - " + objs.name);
+    
+    var aux_search = objs.ids;
+    var class_ = objs.ids.map(function(item, i) { return {id: item, type: "class"}; });
+    var class_values = [];
+    var token = [];
+    var links  = [];
+    var total_links = 5;
 
-    let unique_cluster = [...new Set(objs.data.clusters)]; 
-    let tree = {id: "root", children: []};
-    unique_cluster.sort(function(a, b) { return a - b; });
-
-    for(var i = 0; i < unique_cluster.length; i++)
+    for(var i = 0; i < objs.data.explanations.length; i++)
     {
-      var token_indices = objs.data.clusters
-        .map(function(value, index){ return value === unique_cluster[i] ? index : -1 }) // position index of cluster == unique_cluster[i]
-        .filter(function(value){ return value !== -1 }); // only valide positions != -1
-      var cluster = {id: "cluster" + unique_cluster[i], main_token: objs.data.main_token[i], children: []};
+      var source_i = aux_search.indexOf(objs.ids[i]);
+      var dec_order = objs.data.explanations[i]
+        .map(function(value, index){ return [index, value];  })
+        .sort(function(a, b){ return a[1] - b[1]; })
+        .map(function(value){ return value[0]; })
+        .reverse();
 
-      token_indices.forEach(function(index)
+      var max_value = objs.data.explanations[i][ dec_order[0] ];
+      var min_value = objs.data.explanations[i][ dec_order[dec_order.length - 1] ];
+      var value = [];
+
+      if(min_value === 0 && min_value !== max_value)
       {
-        cluster.children.push({ 
-          id: objs.ids[index], 
-          sentences: objs.data.sentences[index],  
-          position: objs.data.position[index], 
-          named_entity: objs.data.named_entity[index], 
-          postag: objs.data.postag[index],
-          word: objs.data.word[index],
-         });
-      });
+        for(var j = 0; j < dec_order.length; j++)
+        {
+          if(j == total_links)
+            break;
 
-      tree.children.push(cluster);      
+          var tkn   = objs.data.tokens[ dec_order[j] ];
+          var target_i = aux_search.indexOf(tkn);
+
+          if (target_i == -1)
+          {
+            token.push({desc: tkn, original_index: dec_order[j]});
+            aux_search.push(tkn);
+            target_i = aux_search.length - 1;
+          }  
+
+          links.push({source: source_i, target: target_i, value: objs.data.explanations[i][ dec_order[j] ]});
+          value.push(objs.data.explanations[i][ dec_order[j] ]);
+        }
+      }
+
+      class_values.push(value);
     }
 
-    this.drawer.draw(tree);
+    //Sum all the link values of a class. Classes without links are initialized with Number.MAX_VALUE
+    var class_min_value = class_values.map(function(value, index)
+      {  
+        return  value.length == 0 ? Number.MAX_VALUE : value.reduce(function(sum, vl){ return sum + vl; });
+      });
+    //Mininum class value
+    class_min_value = Math.min.apply(null,  class_min_value);
+    //Initialize the value of classes withou links
+    class_.forEach(function(cls, index)
+    {
+      if(class_values[index].length == 0)
+        cls.fixedValue = class_min_value / 2;
+    });
+
+    token = token.map(function(item, index) 
+    { 
+      return {
+        id: item.desc, 
+        type: "token", 
+        sentences: objs.data.sentences[item.original_index],  
+        position: objs.data.position[item.original_index], 
+        named_entity: objs.data.named_entity[item.original_index], 
+        postag: objs.data.postag[item.original_index],
+        word: objs.data.word[item.original_index],
+      }; 
+    });
+    
+    this.drawer.draw({nodes: class_.concat(token), links: links, sentences: PROJECTION_VIEW.sentences}, {}, LABEL_COLOR_PALETTE);
   }
 }
 
@@ -711,7 +775,7 @@ class TextView extends VisManager
 
       PROJECTION_VIEW.select_items(text_id);
       WORD_VIEW.select_items(text_id);
-      CLUSTER_VIEW.select_items(text_id);    
+      EXPLANATION_VIEW.select_items(text_id);   
     });    
   }
   drawer_callback(event)
@@ -736,7 +800,7 @@ class TextView extends VisManager
 
     PROJECTION_VIEW.select_items(text_id);
     WORD_VIEW.select_items(text_id);
-    CLUSTER_VIEW.select_items(text_id);    
+    EXPLANATION_VIEW.select_items(text_id);    
   }
   get_unique_token(text_tokens)
   {

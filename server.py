@@ -1,4 +1,4 @@
-import os, glob, numpy as np, time
+import os, glob, json, numpy as np, time, re
 from flask import Flask, request, render_template
 
 app = Flask(__name__, template_folder='templates')
@@ -36,9 +36,9 @@ def load_config():
   config = {"models": []}
 
   for obj_path in objects:
-    dataset, model, obj_type, _, _ = parse_obj_path(obj_path)
+    dataset, model, obj_type, opt, _ = parse_obj_path(obj_path)
 
-    if obj_type != "text":
+    if obj_type != "text" and opt != "info":
       config["models"].append(dataset + "_" + model)
 
   config["models"] = np.unique(config["models"]).tolist()
@@ -85,44 +85,22 @@ def process_sentence(config, obj_path, loaded_proj_stn, loaded_dist_stn, dataset
   return loaded_proj_stn, loaded_dist_stn       
 
 def set_token_info(config, data, type_):
-  obj = config["objs"]  
-
   for obj in config["objs"]:
     if obj["type"] == type_:
+      obj["data"]["position"] = data["position"].tolist()
+      obj["data"]["postag"] = data["postag"].tolist()
+      obj["data"]["named_entity"] = data["named_entity"].tolist()   
+      obj["data"]["word"] = data["word"].tolist()
       break
 
-  if obj is not None:
-    obj["data"]["position"] = data["position"].tolist()
-    obj["data"]["postag"] = data["postag"].tolist()
-    obj["data"]["named_entity"] = data["named_entity"].tolist()   
-    obj["data"]["word"] = data["word"].tolist()
+def process_token(config, obj_path, loaded_info_tkn, dataset, model, obj_type, opt, opt_type):
+  if opt == "info":  
+    if not loaded_info_tkn:
+      print("|- Loading token info")
 
-def process_token(config, obj_path, loaded_clust_tkn, dataset, model, obj_type, opt, opt_type):
-  if opt == "cluster":
-    config["clusters"].append(opt_type)
-
-    if not loaded_clust_tkn:
-      print("|- Loading token cluster")
-      loaded_clust_tkn = True
+      loaded_info_tkn = True
       data = np.load(obj_path, allow_pickle=True)
-      config["objs"].append(
-        {
-          "type": "cluster",
-          "name": opt_type,
-          "source": "token",
-          "ids": data["token_ids"].tolist(),
-          "label": None,
-          "topic": None,          
-          "data": {
-            "sentences": data["text_ids"].tolist(),
-            "clusters": data["clusters"].tolist(),
-            "main_token": data["clusters_main_token"].tolist(),
-            "position": None,
-            "postag": None,
-            "named_entity": None,
-            "word": None
-          }  
-        })
+
       config["objs"].append(
         {
           "type": "word",
@@ -140,15 +118,12 @@ def process_token(config, obj_path, loaded_clust_tkn, dataset, model, obj_type, 
             "named_entity": None,
             "word": None
           }  
-        })      
-  elif opt == "info":  
-    print("|- Loading token info")
-    data = np.load(obj_path, allow_pickle=True)
+        })  
 
-    set_token_info(config, data, "cluster")
-    set_token_info(config, data, "word")
+      set_token_info(config, data, "word")
+      set_token_info(config, data, "explanation")
 
-  return loaded_clust_tkn
+  return loaded_info_tkn
       
 def process_dataset_text(config, obj_path, dataset, model, obj_type, opt, opt_type):
   print("|- Loading text")
@@ -167,6 +142,38 @@ def process_dataset_text(config, obj_path, dataset, model, obj_type, opt, opt_ty
       }
     })  
 
+def process_explanation(config, obj_path, loaded_exp, dataset, model, obj_type, opt, opt_type):
+  config["explanations"].append(opt_type)
+
+  if not loaded_exp:
+    print("|- Loading explanation")
+    loaded_exp = True
+    start_time = time.time()
+    data = np.load(obj_path, allow_pickle=True)
+    # print(time.time() - start_time)
+    config["objs"].append(
+      {
+        "type": "explanation",
+        "name": opt_type,
+        "source": "class",
+        "ids": data["class_ids"].tolist(),
+        "label": None,
+        "topic": None,          
+        "data": {
+          "sentences": data["text_ids"].tolist(),
+          "tokens": data["token_ids"].tolist(),
+          "explanations": data["explanation"].tolist(),
+          "clusters": None,
+          "main_token": None,
+          "position": None,
+          "postag": None,
+          "named_entity": None,
+          "word": None
+        }  
+      })
+
+  return loaded_exp
+
 @app.route("/filter", methods = ["POST"])
 def filter():
   filter_cfg = request.get_json(force = True)
@@ -176,7 +183,7 @@ def filter():
   #projections: possible projections for the selected model
   #distances: possible distances for the selected model
   #objs: first listed projection/distance for the selected model, token clusters, and texts
-  config = {"models": [ filter_cfg["config"]["model"] ], "projections": [], "distances": [], "clusters": [], "objs": []}
+  config = {"models": [ filter_cfg["config"]["model"] ], "projections": [], "distances": [], "clusters": [], "explanations": [], "objs": []}
 
   objects = glob.glob("data/*npz")
   objects.sort()
@@ -186,20 +193,24 @@ def filter():
 
   for obj in objects:
     file_name = os.path.basename(obj)
+    config_model_without_block = re.sub(r"-b[1-9]\d", "", filter_cfg["config"]["model"])
 
-    if filter_cfg["config"]["model"] in file_name or dataset + "_text" in file_name:
+    if (filter_cfg["config"]["model"] in file_name or 
+        config_model_without_block + "_token_info" in file_name or 
+        dataset + "_text" in file_name):
       filtered_objects.append(obj)
 
   if filter_type == "projection":
     filtered_objects = [ obj for obj in filtered_objects if filter_cfg["config"]["projection"] in os.path.basename(obj) ]
   elif filter_type == "distance":
     filtered_objects = [ obj for obj in filtered_objects if filter_cfg["config"]["distance"] in os.path.basename(obj) ]    
-  elif filter_type == "cluster":
-    filtered_objects = [ obj for obj in filtered_objects if filter_cfg["config"]["cluster"] in os.path.basename(obj) or "token_info" in os.path.basename(obj) ]        
+  elif filter_type == "explanation":
+    filtered_objects = [ obj for obj in filtered_objects if filter_cfg["config"]["explanation"] in os.path.basename(obj) or "token_info" in os.path.basename(obj) ]        
 
   loaded_proj_stn = False
   loaded_dist_stn = False
-  loaded_clust_tkn = False
+  loaded_info_tkn = False
+  loaded_exp = False
 
   proj = None
   text = None
@@ -213,18 +224,18 @@ def filter():
       if proj is None and loaded_proj_stn:
         proj = config["objs"][-1]
     elif obj_type == "token":  
-      loaded_clust_tkn = process_token(config, obj_path, loaded_clust_tkn, dataset, model, obj_type, opt, opt_type)
+      loaded_info_tkn = process_token(config, obj_path, loaded_info_tkn, dataset, model, obj_type, opt, opt_type)
     elif obj_type == "text":  
       process_dataset_text(config, obj_path, dataset, model, obj_type, opt, opt_type)
 
       if text is None:
-        text = config["objs"][-1]            
+        text = config["objs"][-1]
+    elif obj_type == "class":
+      loaded_exp = process_explanation(config, obj_path, loaded_exp, dataset, model, obj_type, opt, opt_type)                
+      
 
   config["projections"] = np.unique(config["projections"]).tolist()
   config["projections"].sort()
-
-  config["distances"] = np.unique(config["distances"]).tolist()
-  config["distances"].sort()
 
   if text is not None:
     if proj is not None:

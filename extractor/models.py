@@ -1,9 +1,10 @@
 
-import os, torch, string
+import os, torch, pdb, string, numpy as np
 
 from enum import IntEnum
-from topic_modeling import load_stop_words, is_number, has_letter
 from transformers import AutoTokenizer, AutoModelForCausalLM
+
+from nlp import load_stop_words, is_number, has_letter, is_ordinal
 
 LLAMA_HPC_PATH = ""
 
@@ -42,25 +43,40 @@ class MyModelFamily():
 
   def get_special_token(self):
     return None
+  
+  def get_pad_token(self, return_id = False):
+    return None
+  
+  def set_model_path(self):
+    self.model_path = None
 
-  def decode_tokens_v1(self, sequences):  
-    sentences = sequences.cpu().tolist()
-    decoded_tokens = []
+  def clean_token(self, token):
+    return token
 
-    for st in sentences:
-      tk_list = []
+  def next_decode(self, token, token_pos, current_pos, text_current_pos):
+    return token_pos, current_pos, text_current_pos    
 
-      for token_idx in st:
-        token = self.tokenizer.decode(token_idx)
+  def pad_tokens(self, token_ids, token_text, token_pos, attn_mask):
+    max_length = max(len(row) for row in token_ids)  
+    token_ids  = np.array([np.pad(row, (max_length - len(row), 0), constant_values = self.get_pad_token(True)) for row in token_ids])
+    token_text = np.array([np.pad(row, (max_length - len(row), 0), constant_values = self.get_pad_token()) for row in token_text])
 
-        if token not in self.get_special_token() and token not in string.punctuation:
-          tk_list.append(token)
-        elif token == self.tokenizer.sep_token:
-          break  
+    max_length = max(len(row) for row in token_pos)
 
-      decoded_tokens.append(tk_list)
+    for idx in range(len(token_pos)):
+      pad = [None] * (max_length - len(token_pos[idx]))
+      pad.extend(token_pos[idx])
+      token_pos[idx] = pad
 
-    return decoded_tokens  
+    max_length = max(len(row) for row in attn_mask)  
+    attn_mask  = np.array([np.pad(row, (max_length - len(row), 0)) for row in attn_mask])    
+
+    return token_ids, token_text, token_pos, attn_mask
+
+  def pad_features(self, features):
+    max_length = max(len(row) for row in features)
+
+    return np.array([np.pad(row, ((max_length - len(row), 0), (0, 0)) ) for row in features])    
 
   def get_token_position(self, data):
     tkn_backend = self.tokenizer.backend_tokenizer
@@ -73,80 +89,68 @@ class MyModelFamily():
       positions.append(tkn_backend.pre_tokenizer.pre_tokenize_str(item))      
 
     return positions  
-
-  def next_decode(self, token, token_pos, current_pos, aux_current_pos):
-    return token_pos, current_pos, aux_current_pos
   
-  def decode_tokens(self, data_ids, data, data_tokens, hidden_state):
-    positions = self.get_token_position(data)
-    stop_words = load_stop_words()
-    tokens = {}
+  def decode_tokens(self, data, token_ids):
+    token_pos = self.get_token_position(data)
+    decoded_token = []
+    padded_token_pos = []
 
-    for ids, token_list, token_pos, feat_list in zip(data_ids, data_tokens["input_ids"].cpu(), positions, hidden_state):
-      token_list_decoded = self.tokenizer.batch_decode(token_list)
+    for idx, (tkns, tkn_pos) in enumerate(zip(token_ids, token_pos)):
+      tkn_desc = self.tokenizer.batch_decode(tkns)  
+      aux_pos = [None] * len(tkn_desc)
       current_pos = None
-      aux_current_pos = None
+      text_current_pos = None
 
-      for token, feat in zip(token_list_decoded, feat_list):
-        token = token.strip()
+      for jdx, desc in enumerate(tkn_desc):
+        desc = desc.strip()
+        
+        if desc not in self.get_special_token():
+          tkn_pos, current_pos, text_current_pos = self.next_decode(desc, tkn_pos, current_pos, text_current_pos)
 
-        if token not in self.get_special_token():
-          token_pos, current_pos, aux_current_pos = self.next_decode(token, token_pos, current_pos, aux_current_pos)
+          if desc != '' and self.clean_token(desc) in current_pos[0]:
+            aux_pos[jdx] = current_pos
 
-          if (token != '' and
-              token in current_pos[0] and
-              token not in string.punctuation and
-              not is_number(token) and 
-              not token.lower() in stop_words and 
-              has_letter(token)):
-          
-              if token not in tokens:
-                tokens[token] = {"text_ids":[], "features": [], "token_pos": []}
+      decoded_token.append([ self.clean_token(desc.strip()) for desc in tkn_desc ])
+      padded_token_pos.append(aux_pos)
+            
+    return decoded_token, padded_token_pos
+  
+  def filter_token(self, token_desc):
+    filtered_token = []  
+    stop_words = load_stop_words()
 
-              tokens[token]["text_ids"].append(ids)
-              tokens[token]["features"].append(feat)
-              tokens[token]["token_pos"].append(current_pos)
+    for desc in token_desc:
+      desc = desc if desc is None else desc.strip()
+      
+      if (desc is not None and
+          desc != '' and
+          desc not in self.get_special_token() and 
+          desc not in string.punctuation and
+          not is_number(desc) and
+          not is_ordinal(desc) and
+          not desc.lower() in stop_words and 
+          has_letter(desc)):
+        filtered_token.append(desc)
 
-    return tokens
-
-  def set_model_path(self):
-    self.model_path = None
-
-  @torch.no_grad()
-  def extract_feature_v1(self, data_ids, data, return_layers = None):
-    return_layers = [-1] if return_layers is None or len(return_layers) == 0 else return_layers
-
-    data_tokens = self.tokenizer(data, return_tensors = "pt", padding = True, padding_side="left").to("cuda")
-    attn_mask = data_tokens["attention_mask"].cpu()
-    ## generate is Auto regressive: results has one hidden_state per max_new_tokens
-    results     = self.model.generate(**data_tokens, max_new_tokens = 10, return_dict_in_generate=True, output_hidden_states=True, output_attentions = False, output_scores=False)
-    last_hidden_state = results.hidden_states[-1]
-
-    layer_output_feature = []
-
-    for idx in return_layers:
-      trunc_out = last_hidden_state[idx].cpu()[:, :attn_mask.shape[1], :]
-      layer_output_feature.append(trunc_out)
-
-    return layer_output_feature, self.decode_tokens_v1(results.sequences), attn_mask
+    filtered_token.sort()
+    return filtered_token
 
   @torch.no_grad()
-  def extract_feature(self, data_ids, data, return_layers = None):
-    return_layers = [-1] if return_layers is None or len(return_layers) == 0 else return_layers
-
+  def extract_feature(self, data, return_blocks = None):
     data_tokens = self.tokenizer(data, return_tensors = "pt", padding = True, padding_side="left", truncation = True).to("cuda")
     results     = self.model(**data_tokens, return_dict_in_generate=True, output_hidden_states=True, output_attentions = False, output_scores=False)
 
-    layer_output_feature = []
-    layer_token = []
+    return_blocks = [-1] if return_blocks is None or len(return_blocks) == 0 else return_blocks
+    block_feature = []
+    block_idx = []
 
-    for idx in return_layers:
-      hidden_state = results["hidden_states"][idx].detach().cpu()
-      layer_output_feature.append( hidden_state )
-      layer_token.append( self.decode_tokens(data_ids, data, data_tokens, hidden_state.numpy()) )
+    for idx in return_blocks:
+      hidden_state = results["hidden_states"][idx].detach().cpu().tolist()
+      block_feature.append(hidden_state)
+      block_idx.append(idx if idx >= 0 else len(results.hidden_states) + idx)
 
     torch.cuda.empty_cache()
-    return layer_output_feature, layer_token, data_tokens["attention_mask"].cpu()
+    return block_idx, block_feature, data_tokens["input_ids"].cpu().tolist(), data_tokens["attention_mask"].cpu().tolist()
 
 class MyBERT(MyModelFamily):
   def __str__(self):
@@ -165,12 +169,24 @@ class MyBERT(MyModelFamily):
   def get_special_token(self):
     return [self.tokenizer.unk_token, self.tokenizer.sep_token, self.tokenizer.pad_token, self.tokenizer.cls_token, self.tokenizer.mask_token]
   
-  def next_decode(self, token, token_pos, current_pos, aux_current_pos):
+  def get_pad_token(self, return_id = False):
+    token = self.tokenizer.pad_token
+
+    if return_id:
+      token = self.tokenizer(token, return_tensors = "pt", padding = False, truncation = True)
+      token = token.input_ids[0][1].item() #0: [CLS], 1: token, 2: [SEP]
+
+    return token
+
+  def clean_token(self, token):
+    return token.replace("##", "")
+
+  def next_decode(self, token, token_pos, current_pos, text_current_pos):
     if "##" not in token:
-      return token_pos[1:], token_pos[0], None
+      return token_pos[1:], token_pos[0], text_current_pos
 
-    return token_pos, current_pos, None  
-
+    return token_pos, current_pos, text_current_pos
+  
 class MyLlama(MyModelFamily):  
   def __str__(self):
     return "Llama-v3.1-8B"
@@ -180,21 +196,36 @@ class MyLlama(MyModelFamily):
     self.tokenizer.pad_token = self.tokenizer.eos_token
 
   def get_special_token(self):
-    return [self.tokenizer.bos_token, self.tokenizer.eos_token, self.tokenizer.unk_token]    
+    return [self.tokenizer.bos_token, self.tokenizer.eos_token, self.tokenizer.unk_token]
+
+  def get_pad_token(self, return_id = False):
+    token = self.tokenizer.pad_token
+
+    if return_id:
+      token = self.tokenizer(token, return_tensors = "pt", padding = False, truncation = True)
+      token = token.input_ids[0][1].item() #0: <|begin_of_text|>  1: <|end_of_text|>
+
+    return token
 
   def set_model_path(self):
     self.model_path = os.path.join(LLAMA_HPC_PATH, "llama-3.1/huggingface", "Llama-3.1-8B") 
 
-  def next_decode(self, token, token_pos, current_pos, aux_current_pos):
-    if aux_current_pos is None or len(aux_current_pos) == 0:
+  def clean_token(self, token):
+    return token.replace("\n", "").replace('Ġ', "").replace('Ċ', "")
+
+  def next_decode(self, token, token_pos, current_pos, text_current_pos):
+    if text_current_pos is None or len(text_current_pos) == 0:
       current_pos = token_pos[0] if len(token_pos) > 0 else current_pos
-      aux_current_pos = current_pos[0]
-      aux_current_pos = aux_current_pos[1:] if 'Ġ' in aux_current_pos else aux_current_pos
+
+      text_current_pos = current_pos[0]
+      ## SPACE
+      text_current_pos = text_current_pos[1:] if 'Ġ' in text_current_pos else text_current_pos
+      ## \n
+      text_current_pos = text_current_pos.replace('Ċ', "")
+
       token_pos   = token_pos[1:]
 
-      return token_pos, current_pos, aux_current_pos[len(token):]
-
-    return token_pos, current_pos, aux_current_pos[len(token):]
+    return token_pos, current_pos, text_current_pos[len(token):]  
 
 class MyGemma(MyModelFamily):
   def __str__(self):
@@ -203,8 +234,20 @@ class MyGemma(MyModelFamily):
   def get_special_token(self):
     return [self.tokenizer.bos_token, self.tokenizer.eos_token, self.tokenizer.unk_token, self.tokenizer.pad_token]
 
+  def get_pad_token(self, return_id = False):
+    token = self.tokenizer.pad_token
+
+    if return_id:
+      token = self.tokenizer(token, return_tensors = "pt", padding = False, truncation = True)
+      token = token.input_ids[0][1].item() #0: <bos>  1: <pad>
+
+    return token
+
   def set_model_path(self):
     self.model_path = os.path.join(LLAMA_HPC_PATH, "gemma", "gemma-2-9b") 
+
+  def clean_token(self, token):
+    return token.replace("▁", "")
 
   def get_token_position(self, data):
     tkn_backend = self.tokenizer.backend_tokenizer
@@ -247,13 +290,12 @@ class MyGemma(MyModelFamily):
       positions.append(aux)
 
     return positions
-  
-  def next_decode(self, token, token_pos, current_pos, aux_current_pos):
-    if aux_current_pos is None or len(aux_current_pos) == 0:
+
+  def next_decode(self, token, token_pos, current_pos, text_current_pos):
+    if text_current_pos is None or len(text_current_pos) == 0:
       current_pos = token_pos[0] if len(token_pos) > 0 else current_pos
-      aux_current_pos = current_pos[0].replace("▁", "")
+      #SPACE
+      text_current_pos = current_pos[0].replace("▁", "")
       token_pos   = token_pos[1:]
 
-      return token_pos, current_pos, aux_current_pos[len(token):]
-
-    return token_pos, current_pos, aux_current_pos[len(token):]  
+    return token_pos, current_pos, text_current_pos[len(token):]  

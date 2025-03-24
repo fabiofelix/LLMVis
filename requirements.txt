@@ -8,4 +8,7 @@ pandas
 numba
 umap-learn
 nltk
+# spacy
+lime
+shape
 flask

@@ -2,7 +2,7 @@
 import os, pandas as pd, numpy as np, re, glob
 from sklearn.model_selection import train_test_split
 from enum import IntEnum
-from topic_modeling import MyLDA
+from nlp import MyLDA
 
 import utils
 
@@ -58,7 +58,7 @@ class Kaggle(TextDataset):
 
     train["name"] = [ "kaggle_article_{}".format(id) for id in train["ID"].to_numpy() ]
 
-    texts, _, _, _ = train_test_split(train, train["label"], train_size = n_samples, random_state=utils.SEED_VALUE, stratify=train["label"])
+    texts, _, _, _ = train_test_split(train, train["label"], train_size = n_samples, stratify = train["label"], random_state=utils.SEED_VALUE)
 
     return texts[["name", "text", "processed_text", "label", "topic"]]
 
@@ -137,6 +137,6 @@ class BBCNews(TextDataset):
             sizes.append(len(data))
 
     texts = pd.DataFrame({"name": filename, "text": text, "processed_text": None, "label": label, "topic": None})
-    texts, _, _, _ = train_test_split(texts, texts.label, train_size = n_samples, random_state=utils.SEED_VALUE)  
+    texts, _, _, _ = train_test_split(texts, texts.label, train_size = n_samples, stratify=texts.label, random_state=utils.SEED_VALUE)  
 
     return texts[["name", "text", "processed_text", "label", "topic"]]
