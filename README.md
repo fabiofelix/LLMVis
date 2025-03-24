@@ -12,7 +12,7 @@
   python extract_features.py 
   
   -d  dataset index (required)
-      (0) Kaggle
+      (0) Kaggle paper abstracts
       (1) TinyStories
       (2) BBCNews
   -m  model index (required)
@@ -47,13 +47,9 @@
   * Word cloud: bigger and darker words are more frequent than smaller and lighter ones
     - Click on one token to (un)select  
     - Mose over one token to show more information
-  * Tree map: blue rectangle are clusters, green rectangle are tokens
-    - Click on one cluster/token to (un)select
-    - Ctrl+click to zoom-in(-out) the cluster
-    - Mose over one cluster/token to show more information
-    - Light-blue cluster reflect PARTIAL selection of the cluster tokens selected by the other views
-    - Very light-blue cluster reflect TOTAL selection of the cluster tokens selected by the other views
-    - Very light-green token reflect selection by the other views
+  * Sankey diagram: left rectangles represent the same Scatter plot classes and right ones the more important tokens
+    - Click on one class/token to (un)select
+    - Mose over one link to show more information
   * Texts:
     - Click on the title (text id + label) to (un)select the text
     - Use the top-right menu to clear all text selections
@@ -69,5 +65,4 @@
     - templates/index.html
     - static/js/client.js: document.addEventListener("DOMContentLoaded", function(){ .. })
     - static/js/svg.js: MySVG
-    - static/js/canvas.js: MyCanvas
     - static/css/vis.css
