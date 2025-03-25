@@ -65,22 +65,6 @@ def process_sentence(config, obj_path, loaded_proj_stn, loaded_dist_stn, dataset
           "data": data["projection"].tolist(),
           "silhouette": data["silhouette_score"].item()
         })
-  elif opt == "dist":
-    config["distances"].append(opt_type)
-
-    if not loaded_dist_stn:
-      print("|- Loading sentence similarity")
-      loaded_dist_stn = True
-      data = np.load(obj_path, allow_pickle=True)
-      config["objs"].append(
-        {
-          "type": "distance",
-          "name": opt_type,
-          "source": "sentence",
-          "ids": data["text_ids"].tolist(),
-          "data": data["similarity"].tolist(),
-          "silhouette": data["hd_silhouette_score"].item()
-        })
       
   return loaded_proj_stn, loaded_dist_stn       
 

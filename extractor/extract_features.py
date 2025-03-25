@@ -6,11 +6,10 @@ import umap
 from sklearn.metrics import pairwise_distances, silhouette_score
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
-from sklearn.cluster import KMeans, DBSCAN, AgglomerativeClustering
 from sklearn.preprocessing import LabelEncoder
 
-from nlp import nltk_extract_entity, spacy_extract_entity, has_letter
-from process import mean_pooling, tag_indexOf, expand_token_axis, mean_list
+from nlp import nltk_extract_entity
+from process import mean_pooling, tag_indexOf, average_token_axis
 from xai import MyLime, MyShap
 
 def extract_token_info(token_desc, token_pos, text_data):
@@ -82,8 +81,7 @@ def save_token_info(args, token_desc, token_pos, text_data, idx2tkn, pattern_fil
             word = np.array(word, dtype = object)
            )
     
-  return tokens_info, tkn_ids, stn_ids    
-
+  return tkn_ids, stn_ids    
 
 ## explanation: <dataset>-<number_samples>_<model>-b<model_block>_class_explanation-<explanation_name>.npz
 def save_explanation(args, text_token, tkn_ids, stn_ids, labels, pattern_file, update = False):
@@ -180,7 +178,6 @@ def run(args, parser):
   pattern_file = pattern_file_data_model_block + "_{" + f":0{pattern_size}d" + "}-{" + f":0{pattern_size}d" + "}.npz"
 
   text_feat  = {}
-  token_feat = {}
   text_token = {}
   text_token_feat = {}
 
@@ -235,36 +232,29 @@ def run(args, parser):
     text_token_feat[key] = model.pad_features(text_token_feat[key])
 
   ## After running expand_token_axis
-  ##   text_token_feat[i].shape (batch_size, filtered_tokens, features)
+  ##   text_token[i].shape (batch_size, filtered_tokens)
   ##   len(idx2tkn)             (filtered_tokens)
-  ##   len(tkn2idx)             (filtered_tokens)
   ## Note: 'tokens' is the TOTAL number of tokens
   ##        idx2tkn = { idx: token_desc  }
-  ##        tkn2ids = { token_desc: idx  }  
-  text_token_feat, idx2tkn, tkn2idx = expand_token_axis(text_token_feat, token_ids, token_desc, model)
-  gc.collect()
+  # text_token_feat, idx2tkn, tkn2idx = expand_token_axis(text_token_feat, token_ids, token_desc, model)
+  text_token, idx2tkn = average_token_axis(text_token_feat, token_desc, model)
 
-  for idx in text_token_feat:
-    text_token[idx] = mean_list(text_token_feat[idx], axis = 2, split_axis=0)
-
-  gc.collect()
   labels = text_data.topic.to_numpy() if text_data.iloc[0].label is None else text_data.label.to_numpy()
 
-  #pdb.set_trace()
+  save_text(args, text_data, pattern_file_data)
+
   ## After running save_token_info
-  ##   len(tokens_info) (tokens)
   ##   len(tkn_ids)     (tokens)
   ##   len(stn_ids)     (tokens, sentences)
   ## Note: 'tokens' is the TOTAL number of tokens
-  ##       token_info = { token_desc: <INFO_OBJ>  }
-  tokens_info, tkn_ids, stn_ids = save_token_info(args, token_desc, token_pos, text_data, idx2tkn, pattern_file_data_model)
-  save_explanation(args, text_token, tkn_ids, stn_ids, labels, pattern_file_data_model_block)
+  tkn_ids, stn_ids = save_token_info(args, token_desc, token_pos, text_data, idx2tkn, pattern_file_data_model)
 
   save_projection(args, text_feat, text_data.name.to_numpy(), labels, pattern_file_data_model_block)
-  
-  save_text(args, text_data, pattern_file_data)
+
+  save_explanation(args, text_token, tkn_ids, stn_ids, labels, pattern_file_data_model_block)
 
   print("|- {} samples - {} tokens".format(text_data.shape[0], len(tkn_ids)))
+
 def main(*args):
   parser = argparse.ArgumentParser(description="")
 

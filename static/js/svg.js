@@ -101,20 +101,21 @@ class ScatterPlot extends MySVG
   constructor(wrapper, tooltip) 
   {
     super(wrapper, tooltip);
-    this.legend = this.config_legend();
+    this.legend = null;
     this.circle_size = 3;
     this.selected_class = [];
   }
   config_legend() 
   {
-    var svg = d3.select(this.wrapper).append("svg");
+    if(this.legend === null)
+      this.legend = d3.select(this.wrapper)
+        .append("svg")
+        .attr("width", this.wrapper.clientWidth)
+        .attr("height", 20);
+    else
+      this.legend.selectAll("*").remove();
 
-    svg
-      .attr("width", this.wrapper.clientWidth)
-      .attr("height", 20)
-      .append("g");
-
-    return svg;
+    this.legend.append("g");
   }
   draw(data, data_summary, palette) 
   {
@@ -122,7 +123,7 @@ class ScatterPlot extends MySVG
     var label_list = [];
     this.svg = this.config_svg();
 
-    var group = this.svg.select("g");
+    var group = this.svg.select("g").attr("class", "scatter-plot");
     var xScale = d3.scaleLinear([data_summary.min_x, data_summary.max_x], [this.circle_size, this.svg.attr("width") - this.circle_size]);
     var yScale = d3.scaleLinear([data_summary.max_y, data_summary.min_y], [this.circle_size, this.svg.attr("height") - this.circle_size]);
     var circle = group.selectAll("circle")
@@ -133,7 +134,13 @@ class ScatterPlot extends MySVG
       .attr("cy", function (d) { return yScale(d.y); })
       .attr("r", this.circle_size)
       .attr("class", function (obj) { return _this.get_circle_class(obj); })    
-      .style("fill", function (d) { label_list.push(d.label); return palette(d.label); });
+      .style("fill", function (d) 
+      { 
+        if(label_list.indexOf(d.label) == -1)
+          label_list.push(d.label); 
+        
+        return palette(d.label); 
+      });
 
     let lassoBrush = lasso()
       .items(group.selectAll("circle"))
@@ -149,16 +156,18 @@ class ScatterPlot extends MySVG
   }
   draw_legend(label_list, palette) 
   {
-    label_list = [...new Set(label_list)];
-    var legend_group = this.legend.select("g");
+    label_list.sort();
+    this.config_legend();
+
     var rect_size = 15;
+    var legend_group = this.legend.select("g");   
     var _this = this;
 
     legend_group.selectAll("rect")
       .data(label_list)
       .enter()
       .append("rect")
-      .attr("class", "scatter-legend")
+      .attr("class", function (obj) { return _this.get_legend_class(obj); })    
       .attr('x', function (d, index) { return index * rect_size; })
       .attr('y', 0)
       .attr('rx', 2)
@@ -187,6 +196,15 @@ class ScatterPlot extends MySVG
         text_ids = _this.call_back.end(text_ids, "class");
         _this.select(text_ids);
       });
+  }
+  get_legend_class(obj)
+  {
+    var class_name = "scatter-legend";
+
+    if(this.selected_class.length > 0 && this.selected_class.indexOf(obj) !== -1)
+      class_name += " scatter-legend-selected";
+
+    return class_name;
   }
   get_circle_class(obj)
   {
@@ -453,6 +471,7 @@ class SankyDiagram extends MySVG
     this.token_info = new TokenInfo();
     this.selected_items = [];
     this.selected_classes = [];
+    this.clicked_class = [];
     this.stn2class = null;
     this.margin = {top: 5, bottom: 5, left: 5, right: 5, text_offset: 6};
   }
@@ -506,6 +525,7 @@ class SankyDiagram extends MySVG
       {
         var sentence_ids = [];
         var position = [];
+        _this.clicked_class = [];
         
         var selected = d3.select(event.target).classed("sunkey-node-selected");
         _this.group.selectAll("rect").classed("sunkey-node-selected", false);
@@ -540,6 +560,7 @@ class SankyDiagram extends MySVG
           }
           else
           {
+            _this.clicked_class = [target.id];
             var filtered_sentences = _this.stn2class
               .filter(function(item) { return item.label === target.id; })
               .map(function(item){ return item.sentence_id; });
@@ -595,6 +616,12 @@ class SankyDiagram extends MySVG
   }
   draw(data, data_summary, palette) 
   {
+    var token_selected = false;
+    this.svg.select("g").selectAll("rect").each(function (obj, i, dom_obj_list) 
+    { 
+      token_selected = token_selected || (obj.type == "token" && d3.select(dom_obj_list[i]).classed("sunkey-node-selected"));
+    });
+
     this.svg = this.config_svg();
     this.group = this.svg.select("g")
       .attr("transform", "translate(" + this.margin.left + "," + this.margin.top + ")");            
@@ -611,6 +638,9 @@ class SankyDiagram extends MySVG
 
     this.update_link(graph.links);
     this.update_node(sankey, graph.nodes, palette);
+
+    if(token_selected)
+      this.call_back.end([], []);
   }
   count(selected_items, obj)
   {
@@ -631,7 +661,9 @@ class SankyDiagram extends MySVG
   {
     var class_name = "";
 
-    if(obj.type === "class" && this.selected_classes.length > 0 && this.selected_classes.indexOf(obj.id) !== -1)
+    if(obj.type === "class" && 
+       ((this.selected_classes.length > 0 && this.selected_classes.indexOf(obj.id) !== -1) ||
+        (this.clicked_class.length > 0 && this.clicked_class.indexOf(obj.id) !== -1)))
       class_name = "sunkey-node-selected";
 
     return class_name;
@@ -640,7 +672,8 @@ class SankyDiagram extends MySVG
   {
     var class_ = "sunkey-link";
 
-    if(this.selected_classes.length > 0 && this.selected_classes.indexOf(obj.source.id) !== -1)
+    if((this.selected_classes.length > 0 && this.selected_classes.indexOf(obj.source.id) !== -1) ||
+       (this.clicked_class.length > 0 && this.clicked_class.indexOf(obj.source.id) !== -1))
       class_ += " sunkey-link sunkey-link-selected"; 
 
     return class_;

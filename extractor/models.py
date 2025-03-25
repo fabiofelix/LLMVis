@@ -35,6 +35,10 @@ class MyModelFamily():
     self.model = self.model.to("cuda")
     self.model.eval()
 
+  def __len__(self):
+    #transformer layer + embedding layer
+    return len(self.model.model.layers) + 1  
+
   def create_model(self):
     self.model = AutoModelForCausalLM.from_pretrained(self.model_path, torch_dtype=torch.float16, device_map='auto')        
 
@@ -155,6 +159,10 @@ class MyModelFamily():
 class MyBERT(MyModelFamily):
   def __str__(self):
     return "BERT-base-uncased"
+  
+  def __len__(self):
+    #transformer layer + embedding layer
+    return len(self.model._modules["bert"].encoder.layer) + 1
   
   def set_model_path(self):
     #A NOT case sensitive model pretrained with two self-supervised tasks:

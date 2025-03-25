@@ -19,7 +19,7 @@ document.addEventListener("DOMContentLoaded", function()
 
   PROJECTION_VIEW = new Projection("projection_list", "projection_header", "projection_chart_area");
   WORD_VIEW = new WordView("distance_list", "distance_header", "distance_chart_area");
-  EXPLANATION_VIEW = new Explanation("token_list", "token_header", "token_chart_area")  
+  EXPLANATION_VIEW = new Explanation("token_list", "token_header", "token_chart_area")
   TEXT_VIEW = new TextView("text_list", "text_header", "text_area");
 
   fetch("/config")
@@ -421,6 +421,7 @@ class Projection extends VisManager
       return {sentence_id: objs.ids[idx], x: value[0], y: value[1], label: label};
     });
 
+    unique_label.sort();
     LABEL_COLOR_PALETTE = d3.scaleOrdinal(d3.schemeCategory10).domain(unique_label);    
     this.drawer.draw(formated_objs, sum, LABEL_COLOR_PALETTE);
   }

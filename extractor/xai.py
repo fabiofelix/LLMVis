@@ -23,8 +23,7 @@ class Explainer:
     pass
 
   def run(self, data, labels, feature_names, label_names, test_size = 20):
-    # X_train, X_test, y_train, y_test = train_test_split(data, labels, test_size=test_size, stratify = labels, random_state=utils.SEED_VALUE)    
-    X_train, X_test, y_train, y_test = train_test_split(data, labels, test_size=test_size, random_state=utils.SEED_VALUE)
+    X_train, X_test, y_train, y_test = train_test_split(data, labels, test_size=test_size, stratify = labels, random_state=utils.SEED_VALUE)    
 
     X_train = self.scaler.fit_transform(X_train)
     X_test  = self.scaler.transform(X_test)
@@ -71,8 +70,7 @@ class MyShap(Explainer):
     label_prob  = self.classifier.predict_proba(X_test)
     label_pred  = np.argmax(label_prob, axis = 1)
 
-    explainer = shap.KernelExplainer(self.classifier.predict, X_test)
-    shap_values = explainer(X_test, silent=True)
+    shap_values = self.explainer(X_test, silent=True)
 
     for label, shap_v, lb_pred, lb_prob in tqdm.tqdm(zip(y_test, shap_values.values, label_pred, label_prob), desc = "|-- SHAP explanation" , total = X_test.shape[0], unit= "sample"):
       self.exp_space["original_label"].append(label_names[label])

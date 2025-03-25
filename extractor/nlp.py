@@ -1,4 +1,4 @@
-import os, numpy as np, string, re, tqdm, nltk, utils#, spacy
+import os, numpy as np, string, re, tqdm, nltk, pdb, utils, json
 
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
@@ -34,6 +34,11 @@ def is_number(value):
 
   return re.match(number_pattern, value) is not None
 
+def is_ordinal(value):
+  number_pattern = "([0-9]*)(?:st|nd|rd|th)"
+
+  return re.match(number_pattern, value.lower())  
+
 def has_letter(value):
   letter_patern = '[a-zA-Z]'
 
@@ -66,21 +71,6 @@ def nltk_extract_entity(text):
 
   return tags, entity_list
 
-## https://spacy.io/
-# def spacy_extract_entity(text):
-#   nlp = spacy.load("en_core_web_sm")
-#   doc = nlp(text)
-#   tags = []
-#   entity_list = []
-#
-#   entity_map = {ent.text: ent.label_ for ent in doc.ents  }
-#
-#   for token in doc:
-#     tags.append((token.text, token.tag_ + " (" + spacy.glossary.explain(token.tag_) + ")" ))
-#     entity_list.append( entity_map[token.text] if token.text in entity_map else None )
-#
-#   return tags, entity_list
-
 class TopicModeling:
   def __init__(self):
     self.vectorizer = None
@@ -94,7 +84,7 @@ class TopicModeling:
     stop_words = load_stop_words()
     table = str.maketrans('', '', string.punctuation)
 
-    for txt in tqdm.tqdm(texts, desc = "Preprocessing" , total = len(texts), unit= "text"):
+    for txt in tqdm.tqdm(texts, desc = "|- Preprocessing" , total = len(texts), unit= "text"):
       # remove email
       txt = re.sub(r"([\w\.\-\_]+@[\w\.\-\_]+)", "", txt).strip()
       # split into words
