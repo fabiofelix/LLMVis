@@ -427,54 +427,6 @@ class Projection extends VisManager
   }
 }
 
-class Distance extends VisManager
-{
-  constructor(div_list_id, header_id, chart_id)
-  {
-    super(div_list_id, header_id, chart_id);
-    this.filter_type = "distance";
-    this.source_type = "sentence";
-    this.drawer = new Heatmap(chart_id);
-    var _this = this;
-    this.drawer.on("end", function(data){ _this.drawer_callback(data); });
-  }
-  drawer_callback(data)
-  {
-    var text_ids = data
-      .filter(function(value, index, array) { return array.indexOf(value) === index; });
-    text_ids = FILTER.set_view(this.filter_type, text_ids).get_view();
-    
-    PROJECTION_VIEW.select_items(text_ids);
-    EXPLANATION_VIEW.select_items(text_ids);
-    TEXT_VIEW.select_items(text_ids);
-  }  
-  show(data, clean=true)
-  {
-    var objs = this.extract_data(data.objs);
-    this.set_header("Text - " + objs.name + " (high-dimension)" + " - sh: " + objs.silhouette.toFixed(4));
-    var sum = {min_value: Number.MAX_VALUE, max_value: Number.MIN_VALUE, n_row: objs.data.length, n_col: objs.data.length};
-
-    var formated_objs = []
-
-    for(var i = 0; i < objs.data.length; i++)      
-    {
-      var aux = [];
-
-      for(var j = 0; j < objs.data.length; j++)      
-      {
-        sum.min_value = Math.min(sum.min_value, objs.data[i][j]);
-        sum.max_value = Math.max(sum.max_value, objs.data[i][j]);      
-
-        aux.push({id_i: objs.ids[i], id_j: objs.ids[j], value: objs.data[i][j]});
-      }  
-
-      formated_objs.push(aux);
-    }
-
-    this.drawer.draw(formated_objs, sum, null);
-  }
-}
-
 class WordView extends VisManager
 {
   constructor(div_list_id, header_id, chart_id)
@@ -527,7 +479,7 @@ class WordView extends VisManager
     var filtered = words;
     
     if(words[0].frequency !== words[words.length - 1].frequency)
-      filtered = words.filter(function(item) { return item.frequency / max_norm_factor > min_freq && item.frequency / max_norm_factor < max_freq; });
+      filtered = words.filter(function(item) { return (item.frequency / max_norm_factor) >= min_freq && (item.frequency / max_norm_factor) <= max_freq; });
 
     return filtered.length > samples ? filtered.slice(-samples) : filtered;    
   }    
@@ -561,16 +513,37 @@ class WordView extends VisManager
 
     if (FILTER.count(this.filter_type) != 0)
     {
-      filtered = this.words
-       .map(function(item) {  return Object.assign({}, item); })
-       .filter(function(value, index, array)
-       { 
-          value.frequency = value.sentences
-            .filter(function(stn) {  return items.indexOf(stn) !== -1;  })
-            .length;
-          return value.frequency > 0;
-       })
-       .sort(function(a, b) { return a.frequency - b.frequency; });
+      filtered = this.words 
+        .map(function(item, i) 
+        {  
+          var new_item = {
+            id: item.id, 
+            text: item.text,
+            frequency: 0, 
+            sentences: [],
+            position: [], 
+            named_entity: [], 
+            postag: [],
+            word: [],      
+          };
+
+          item.sentences.forEach(function(stn, j)
+          {
+            if(items.indexOf(stn) !== -1)
+            {
+              new_item.frequency += 1;
+              new_item.sentences.push(stn);
+              new_item.position.push(item.position[j]);
+              new_item.named_entity.push(item.named_entity[j]);
+              new_item.postag.push(item.postag[j]);
+              new_item.word.push(item.word[j]);
+            }
+          });
+
+          return new_item; 
+        })
+        .filter(function(value, index, array){ return value.frequency > 0;  })
+        .sort(function(a, b) { return a.frequency - b.frequency; });
     }
 
     filtered = this.zipf_law(filtered);
@@ -622,8 +595,10 @@ class Explanation extends VisManager
     var objs = this.extract_data(data.objs);
     this.set_header("Class - " + objs.ids.length + " samples - " + objs.name);
     
+    //List with all nodes (classes + tokens)
     var aux_search = objs.ids;
-    var class_ = objs.ids.map(function(item, i) { return {id: item, type: "class"}; });
+    var node_objects = objs.ids.map(function(item, i) { return {id: item, type: "class"}; });
+    //Used to set a fixedValue for classes that don't have connections
     var class_values = [];
     var token = [];
     var links  = [];
@@ -634,8 +609,8 @@ class Explanation extends VisManager
       var source_i = aux_search.indexOf(objs.ids[i]);
       var dec_order = objs.data.explanations[i]
         .map(function(value, index){ return [index, value];  })
-        .sort(function(a, b){ return a[1] - b[1]; })
-        .map(function(value){ return value[0]; })
+        .sort(function(a, b){ return a[1] - b[1]; }) //compare values
+        .map(function(value){ return value[0]; })    //return indeces
         .reverse();
 
       var max_value = objs.data.explanations[i][ dec_order[0] ];
@@ -644,23 +619,30 @@ class Explanation extends VisManager
 
       if(min_value === 0 && min_value !== max_value)
       {
+        var count = 0;
+
         for(var j = 0; j < dec_order.length; j++)
         {
-          if(j == total_links)
+          if(count == total_links)
             break;
 
-          var tkn   = objs.data.tokens[ dec_order[j] ];
-          var target_i = aux_search.indexOf(tkn);
+          if(objs.data.explanations[i][ dec_order[j] ] > 0)
+          {  
+            count++;
 
-          if (target_i == -1)
-          {
-            token.push({desc: tkn, original_index: dec_order[j]});
-            aux_search.push(tkn);
-            target_i = aux_search.length - 1;
-          }  
+            var tkn   = objs.data.tokens[ dec_order[j] ];
+            var target_i = aux_search.indexOf(tkn);
 
-          links.push({source: source_i, target: target_i, value: objs.data.explanations[i][ dec_order[j] ]});
-          value.push(objs.data.explanations[i][ dec_order[j] ]);
+            if (target_i == -1)
+            {
+              token.push({desc: tkn, original_index: dec_order[j]});
+              aux_search.push(tkn);
+              target_i = aux_search.length - 1;
+            }  
+
+            links.push({source: source_i, target: target_i, value: objs.data.explanations[i][ dec_order[j] ]});
+            value.push(objs.data.explanations[i][ dec_order[j] ]);
+          }
         }
       }
 
@@ -674,8 +656,8 @@ class Explanation extends VisManager
       });
     //Mininum class value
     class_min_value = Math.min.apply(null,  class_min_value);
-    //Initialize the value of classes withou links
-    class_.forEach(function(cls, index)
+    //Initialize the value of classes without links
+    node_objects.forEach(function(cls, index)
     {
       if(class_values[index].length == 0)
         cls.fixedValue = class_min_value / 2;
@@ -694,7 +676,7 @@ class Explanation extends VisManager
       }; 
     });
     
-    this.drawer.draw({nodes: class_.concat(token), links: links, sentences: PROJECTION_VIEW.sentences}, {}, LABEL_COLOR_PALETTE);
+    this.drawer.draw({nodes: node_objects.concat(token), links: links, sentences: PROJECTION_VIEW.sentences}, {}, LABEL_COLOR_PALETTE);
   }
 }
 

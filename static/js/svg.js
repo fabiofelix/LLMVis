@@ -48,14 +48,14 @@ class MySVG
 
 class TokenInfo
 {
-  get_table(data, count_sentences, show_id = true)
+  get_table(data, count, show_id = true)
   {
     var html = "";
 
     if(show_id)
       html  += "<p><span class='font-weight-bold'>Token: </span>" + data.id + "</p>";
 
-    html += "<p><span class='font-weight-bold'>Sentences: </span>" + count_sentences + "</p>";          
+    html += "<p><span class='font-weight-bold'>Entries: </span>" + count + "</p>";          
 
     html += "<div class='table-responsive'>";
     html += "<table class='table table-bordered' id='dataTable' width='100%' cellspacing='0'>";
@@ -473,6 +473,7 @@ class SankyDiagram extends MySVG
     this.selected_classes = [];
     this.clicked_class = [];
     this.stn2class = null;
+    this.token_node_color = "#91b691";
     this.margin = {top: 5, bottom: 5, left: 5, right: 5, text_offset: 6};
   }
   update_link(links)
@@ -520,7 +521,7 @@ class SankyDiagram extends MySVG
       .attr("y", function(d) { return d.y0; })
       .attr("height", function(d) { return d.y1 - d.y0; })
       .attr("width", sankey.nodeWidth())
-      .style("fill", function(d) { return d.type == "class" ? d.color = palette(d.id) : d.color = "#91b691"; })
+      .style("fill", function(d) { return d.type == "class" ? d.color = palette(d.id) : d.color = _this.token_node_color; })
       .on("click", function (event, target) 
       {
         var sentence_ids = [];
@@ -633,7 +634,8 @@ class SankyDiagram extends MySVG
       .size([+this.svg.attr("width") - this.margin.left - this.margin.right, 
              +this.svg.attr("height") - this.margin.top - this.margin.bottom]);
 
-    sankey.nodeAlign(function(node, n){ return node.type == "class" || node.sourceLinks.length ? node.depth : n - 1; });
+    //Aligns classes on the left-side even with no link connection with tokens     
+    sankey.nodeAlign(function(node, n){ return node.type == "class" || node.sourceLinks.length > 0 ? node.depth : n - 1; });
     var graph = sankey(data);
 
     this.update_link(graph.links);
