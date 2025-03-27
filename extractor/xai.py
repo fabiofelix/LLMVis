@@ -22,8 +22,33 @@ class Explainer:
   def do_run(self):
     pass
 
-  def run(self, data, labels, feature_names, label_names, test_size = 20):
-    X_train, X_test, y_train, y_test = train_test_split(data, labels, test_size=test_size, stratify = labels, random_state=utils.SEED_VALUE)    
+  ##Strafified sampling with fixed test_samples_per_class
+  def train_test_split(self, data, labels, test_samples_per_class):
+    data = np.array(data)
+    labels = np.array(labels)
+    X_train = []
+    y_train = []
+    X_test = []
+    y_test = []    
+    
+    for lb in np.unique(labels):
+      indices = np.where(labels == lb)[0]
+      aux_idx = np.random.choice(range(indices.shape[0]), size=test_samples_per_class, replace=False)
+      indices = indices[aux_idx]
+      indices.sort()
+
+      X_test.extend(data[indices].tolist())
+      y_test.extend(labels[indices].tolist())
+
+      indices = np.array([ i for i in range(data.shape[0]) if i not in indices  ])
+
+      X_train.extend(data[indices].tolist())
+      y_train.extend(labels[indices].tolist())
+
+    return X_train, X_test, y_train, y_test
+
+  def run(self, data, labels, feature_names, label_names, test_samples_per_class = 5):
+    X_train, X_test, y_train, y_test =  self.train_test_split(data, labels, test_samples_per_class=test_samples_per_class)
 
     X_train = self.scaler.fit_transform(X_train)
     X_test  = self.scaler.transform(X_test)

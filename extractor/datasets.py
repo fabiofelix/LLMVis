@@ -40,6 +40,7 @@ class Kaggle(TextDataset):
     train = pd.read_csv(os.path.join(self.data_path, "train.csv"))
 
     train = train.rename(columns={"ABSTRACT": "text"})
+    train.text = train.TITLE + "\n" + train.text
     train["label"] = None
     train["topic"] = None
     train["processed_text"] = None
