@@ -232,168 +232,6 @@ class ScatterPlot extends MySVG
   }
 }
 
-class TreeMap extends MySVG 
-{
-  constructor(wrapper, tooltip) 
-  {
-    super(wrapper, tooltip);
-    this.treemap = null;
-    this.token_info = new TokenInfo();
-  }
-  draw(data, data_summary, palette) 
-  {
-    this.svg = this.config_svg();
-    this.group = this.svg.select("g");
-    this.data = data;
-
-    var root = d3.hierarchy(data)
-      .count();
-    this.treemap = d3.treemap().size([+this.svg.attr("width"), +this.svg.attr("height")]).round(true).paddingInner(1)
-      .tile(d3.treemapBinary);
-    var clusters = this.treemap(root)
-      .descendants()
-      .filter(function (obj) { return obj.height == 1; });
-
-    this.update_rec(clusters);
-  }
-  update_rec(nodes) 
-  {
-    var _this = this;
-    var rect = this.group.selectAll("rect").data(nodes, function (d) { return d.data.id; });
-
-    rect.exit().remove();
-
-    rect.enter()
-      .append("rect")
-      .attr("id", function (obj) { return obj.data.id; })
-      .attr("class", function (obj) { return _this.get_rec_class(obj, this); })
-      .attr('width', function (obj) { return obj.x1 - obj.x0; })
-      .attr('height', function (obj) { return obj.y1 - obj.y0; })
-      .attr("transform", function (obj) { return "translate(" + obj.x0 + "," + obj.y0 + ")"; })
-      .on("click", function (event, target) 
-      {
-        var sentence_ids = [];
-        var position = [];
-
-        if(event.ctrlKey) 
-        {
-          //target (leaf), target.parent (culster), target.parent.parent (root)
-          if (target.children === undefined)
-            _this.update_rec(target.parent.parent.children);
-          //target (cluster), target.children (leaft)
-          else 
-          {
-            var new_target = Object.assign({}, target);
-            new_target = Object.setPrototypeOf(new_target, Object.getPrototypeOf(target));
-            new_target.depth -= 1;
-
-            for (var i = 0; i < new_target.children.length; i++)
-              new_target.children[i].depth -= 1;
-
-            new_target = _this.treemap(new_target);
-            _this.update_rec(new_target.children);
-          }
-        }
-        else 
-        {
-          var selected = d3.select(event.target).classed("treemap-cluster-selected");
-
-          _this.group.selectAll("rect").classed("treemap-cluster-selected", false);
-
-          if (!selected) 
-          {
-            //target (leaf), target.parent (culster), target.parent.parent (root)
-            if (target.children === undefined)
-            {
-              sentence_ids = sentence_ids.concat(target.data.sentences);
-              position = position.concat(target.data.position);
-            }
-            //target (cluster), target.children (leaft)
-            else
-              target.children.forEach(function (obj, index)
-              {
-                sentence_ids = sentence_ids.concat(obj.data.sentences);
-                position = position.concat(obj.data.position);
-              });
-
-            d3.select(event.target).classed("treemap-cluster-selected", true);
-          }
-        }
-
-        _this.call_back.end(sentence_ids, position);
-      })
-      .on("mouseover", function (event, target) 
-      {
-        var msg = "";
-
-        if (target.children === undefined)
-        { 
-          var count_sentences = _this.selected_items.length === 0 ? target.data.sentences.length :  _this.count(_this.selected_items, target);
-          msg = _this.token_info.get_table(target.data, count_sentences);
-        }  
-        else
-        {
-          var count_token = _this.selected_items.length === 0 ? target.children.length : _this.count(_this.selected_items, target); 
-          msg  = "<p><span class='font-weight-bold'>ID: </span>" + target.data.id + "</p>";
-          msg += "<p><span class='font-weight-bold'>Count tokens: </span>" + count_token + "</p>";
-          msg += "<p><span class='font-weight-bold'>Main tokens: </span><span>" + target.data.main_token + "</span></p>";
-        }  
-
-        _this.tooltip.show(msg, [event.clientX, event.clientY]);
-      })
-      .on("mouseout", function (event, target) { _this.tooltip.hide(); });
-  }
-  count(selected_items, obj)
-  {
-    //Process leaves
-    if (obj.children === undefined)
-      return obj.data.sentences
-        .filter(function (sentence_id, j) { return selected_items.indexOf(sentence_id) !== -1; })
-        .length;
-    //Process intern nodes (clusters)    
-    else
-      return obj.children
-        .filter(function (token, j) 
-        {
-          return token.data.sentences
-            .filter(function (sentence_id, k) { return selected_items.indexOf(sentence_id) !== -1; })
-            .length > 0;
-        })
-        .length;
-  }
-  get_rec_class(obj, dom_obj)
-  {
-    var class_name = obj.children === undefined ? "treemap-rect treemap-leaf" : "treemap-rect treemap-cluster";
-
-    if (this.selected_items.length > 0)
-    {  
-      var original_length = obj.children === undefined ? obj.data.sentences.length : obj.children.length;
-      var new_length = this.count(this.selected_items, obj)
-
-      if(new_length == 0)
-        class_name += " treemap-unselected";
-      else if(obj.children !== undefined && original_length !== new_length)
-        class_name += " treemap-partial-selected";
-    }
-    
-    if(d3.select(dom_obj).classed("treemap-cluster-selected"))
-      class_name += " treemap-cluster-selected"
-
-    return class_name;    
-  }
-  select(data, redraw = true) 
-  {
-    this.selected_items = data;
-
-    if(redraw)
-    {
-      var _this = this;
-      this.svg.select("g").selectAll("rect")
-        .attr("class", function (obj) { return _this.get_rec_class(obj, this); });
-    }  
-  }  
-}
-
 class WordCloud extends MySVG
 {
   constructor(wrapper, tooltip) 
@@ -473,8 +311,13 @@ class SankyDiagram extends MySVG
     this.selected_classes = [];
     this.clicked_class = [];
     this.stn2class = null;
+    this._total_links = 5;
     this.token_node_color = "#91b691";
     this.margin = {top: 5, bottom: 5, left: 5, right: 5, text_offset: 6};
+  }
+  get total_links()
+  {
+    return this._total_links;
   }
   update_link(links)
   {
@@ -544,17 +387,10 @@ class SankyDiagram extends MySVG
 
               if(obj.target.id === target.id)
               {  
-                var filtered_sentences = _this.stn2class
-                  .filter(function(item) { return item.label === obj.source.id; })
-                  .map(function(item){ return item.sentence_id; });
-
                 target.sentences.forEach(function(stn, j)
                 {
-                  if(filtered_sentences.indexOf(stn) > -1)
-                  {
-                    sentence_ids.push(stn);
-                    position.push(target.position[j]);
-                  }
+                  sentence_ids.push(stn);
+                  position.push(target.position[j]);
                 });
               }              
             });
@@ -569,18 +405,6 @@ class SankyDiagram extends MySVG
             _this.group.selectAll("path").each(function(obj, i, array)
             {
               d3.select(array[i]).classed("sunkey-link-selected", obj.source.id === target.id);
-
-              if(obj.source.id === target.id)
-              {  
-                obj.target.sentences.forEach(function(stn, j)
-                {
-                  if(filtered_sentences.indexOf(stn) > -1)
-                  {
-                    sentence_ids.push(stn);
-                    position.push(obj.target.position[j]);
-                  }
-                });
-              }
             });
 
             if(sentence_ids.length === 0)
@@ -589,21 +413,7 @@ class SankyDiagram extends MySVG
         }
 
         _this.call_back.end(sentence_ids, position);
-      })
-      .on("mouseover", function (event, target) 
-      {
-        var msg = "";
-
-        if(target.type === "token")
-        { 
-          // var count_sentences = _this.selected_items.length === 0 ? target.data.sentences.length :  _this.count(_this.selected_items, target);
-          // var count_sentences = 0;
-          // msg = _this.token_info.get_table(target, count_sentences);
-
-          // _this.tooltip.show(msg, [event.clientX, event.clientY]);
-        }  
-      })
-      .on("mouseout", function (event, target) { _this.tooltip.hide(); });      
+      });
 
     node
       .append("text")
@@ -630,7 +440,7 @@ class SankyDiagram extends MySVG
 
     var sankey = d3.sankey()
       .nodeWidth(20)
-      .nodePadding(10)
+      .nodePadding(5)
       .size([+this.svg.attr("width") - this.margin.left - this.margin.right, 
              +this.svg.attr("height") - this.margin.top - this.margin.bottom]);
 
@@ -680,22 +490,5 @@ class SankyDiagram extends MySVG
 
     return class_;
   }
-  select(data, redraw = true) 
-  {
-    this.selected_items = data;
-
-    if(redraw)
-    {
-      var _this = this;
-      this.selected_classes = this.stn2class
-        .filter(function(obj){ return _this.selected_items.indexOf(obj.sentence_id) !== -1;  })
-        .map(function(obj){ return obj.label; });
-
-      this.svg.select("g").selectAll("rect")
-        .attr("class", function (obj) { return _this.get_node_class(obj) });        
-
-      this.svg.select("g").selectAll("path")
-        .attr("class", function (obj) { return _this.get_link_class(obj); });
-    } 
-  }
 }
+

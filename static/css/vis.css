@@ -30,6 +30,18 @@
   display: none;
 }
 
+.card-body
+{
+  padding-left: 0.50rem !important; 
+  padding-right: 0.50rem !important;
+  padding-top: 0.50rem !important;  
+}
+
+.card-body-bottom
+{
+  padding-bottom: 0.50rem !important;  
+}
+
 /******************
   Lasso - D3.js
 ******************/

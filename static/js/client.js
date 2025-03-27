@@ -18,8 +18,8 @@ document.addEventListener("DOMContentLoaded", function()
   FILTER = new FilterManager();
 
   PROJECTION_VIEW = new Projection("projection_list", "projection_header", "projection_chart_area");
-  WORD_VIEW = new WordView("distance_list", "distance_header", "distance_chart_area");
-  EXPLANATION_VIEW = new Explanation("token_list", "token_header", "token_chart_area")
+  WORD_VIEW = new WordView("wordcloud_list", "wordcloud_header", "wordcloud_chart_area");
+  EXPLANATION_VIEW = new Explanation("explain_list", "explain_header", "explain_chart_area")
   TEXT_VIEW = new TextView("text_list", "text_header", "text_area");
 
   fetch("/config")
@@ -379,12 +379,11 @@ class Projection extends VisManager
   }
   drawer_callback(data, second_filter_type)
   {
-    var text_ids = data
-      .filter(function(value, index, array) { return array.indexOf(value) === index; });
-    text_ids = FILTER.set_view(second_filter_type, text_ids).get_view();
+    var text_ids = FILTER.set_view(second_filter_type, data).get_view();
 
     WORD_VIEW.select_items(text_ids);
-    EXPLANATION_VIEW.select_items(text_ids);
+    var text_label = this.sentences_.filter(function(stn){ return text_ids.indexOf(stn.sentence_id) > -1 });
+    EXPLANATION_VIEW.select_items(text_label);
     TEXT_VIEW.select_items(text_ids);
 
     return text_ids;
@@ -442,11 +441,15 @@ class WordView extends VisManager
     {
       if(filter_type !== _this.filter_type && value.length === 0)
       {
-        var text_id = FILTER.set_view(_this.filter_type, []).get_view();
+        var text_ids = FILTER.set_view(_this.filter_type, []).get_view();
 
-        PROJECTION_VIEW.select_items(text_id, PROJECTION_VIEW.secondary_filter_type.indexOf(filter_type) !== -1);
-        EXPLANATION_VIEW.select_items(text_id, EXPLANATION_VIEW.filter_type === filter_type);
-        TEXT_VIEW.select_items(text_id, TEXT_VIEW.filter_type === filter_type);
+        PROJECTION_VIEW.select_items(text_ids, PROJECTION_VIEW.secondary_filter_type.indexOf(filter_type) !== -1);
+
+        var text_label = [];
+        text_label = PROJECTION_VIEW.sentences.filter(function(stn){ return text_ids.indexOf(stn.sentence_id) > -1 });
+        EXPLANATION_VIEW.select_items(text_label, EXPLANATION_VIEW.filter_type === filter_type);
+
+        TEXT_VIEW.select_items(text_ids, TEXT_VIEW.filter_type === filter_type);
       }  
     });
   }  
@@ -457,7 +460,7 @@ class WordView extends VisManager
 
     for(var i = 0; i < data.length; i++)
     {
-      if(data_filtered.indexOf(data[i]) !== -1)
+      if(data_filtered.indexOf(data[i]) !== -1 && position[i] !== null)
       {
         if(Object.keys(text_ids).indexOf(data[i]) == -1) 
           text_ids[data[i]] = [];
@@ -465,10 +468,17 @@ class WordView extends VisManager
         text_ids[data[i]].push( position[i] );
       } 
     }    
-    
-    PROJECTION_VIEW.select_items(Object.keys(text_ids) == 0 ? data_filtered : Object.keys(text_ids));
-    EXPLANATION_VIEW.select_items(Object.keys(text_ids) == 0 ? data_filtered : Object.keys(text_ids));
-    TEXT_VIEW.select_items(Object.keys(text_ids) == 0 ? data_filtered : text_ids);
+
+    PROJECTION_VIEW.select_items(Object.keys(text_ids).length == 0 ? data_filtered : Object.keys(text_ids));
+    var text_label = [];
+
+    if(Object.keys(text_ids).length == 0)
+      text_label = PROJECTION_VIEW.sentences.filter(function(stn){ return data_filtered.indexOf(stn.sentence_id) > -1 });
+    else
+      text_label = PROJECTION_VIEW.sentences.filter(function(stn){ return Object.keys(text_ids).indexOf(stn.sentence_id) > -1 });
+
+    EXPLANATION_VIEW.select_items(text_label);
+    TEXT_VIEW.select_items(Object.keys(text_ids).length == 0 ? data_filtered : text_ids);
   }  
   zipf_law(words)
   {
@@ -481,7 +491,7 @@ class WordView extends VisManager
     if(words[0].frequency !== words[words.length - 1].frequency)
       filtered = words.filter(function(item) { return (item.frequency / max_norm_factor) >= min_freq && (item.frequency / max_norm_factor) <= max_freq; });
 
-    return filtered.length > samples ? filtered.slice(-samples) : filtered;    
+    return filtered.length > samples ? filtered.slice(-samples) : filtered;
   }    
   show(data, clean=true)
   {
@@ -564,6 +574,10 @@ class Explanation extends VisManager
     this.filter_type = "explanation";
     this.source_type = "class";
     this.drawer = new SankyDiagram(chart_id, TOOLTIP);
+    this.classes = null;
+    this.data = null;
+    this.selected_classes = [];
+    this.selected_sentence = [];    
     var _this = this;
     this.drawer.on("end", function(data, position){ _this.drawer_callback(data, position); });    
   }
@@ -589,64 +603,91 @@ class Explanation extends VisManager
     PROJECTION_VIEW.select_items(Object.keys(text_ids) == 0 ? data_filtered : Object.keys(text_ids));
     WORD_VIEW.select_items(Object.keys(text_ids) == 0 ? data_filtered : Object.keys(text_ids));
     TEXT_VIEW.select_items(Object.keys(text_ids) == 0 ? data_filtered : text_ids);
-  }    
-  show(data, clean=true)
-  { 
-    var objs = this.extract_data(data.objs);
-    this.set_header("Class - " + objs.ids.length + " samples - " + objs.name);
-    
+  } 
+  process_data(filter_class, filter_sentence)
+  {
+    var _this = this;
     //List with all nodes (classes + tokens)
-    var aux_search = objs.ids;
-    var node_objects = objs.ids.map(function(item, i) { return {id: item, type: "class"}; });
+    var aux_search = Object.assign([], this.classes);
+
+    if(this.selected_classes.length > 0)
+      aux_search = this.classes.filter(function(cls){ return _this.selected_classes.indexOf(cls) !== -1 });
+
+    var node_objects = aux_search.map(function(item, i) { return {id: item, type: "class"}; });
+    //Avoides classes and tokens with the same name
+    aux_search = aux_search.map(function(item, i) { return item + "_class"; });
     //Used to set a fixedValue for classes that don't have connections
     var class_values = [];
     var token = [];
     var links  = [];
-    var total_links = 5;
 
-    for(var i = 0; i < objs.data.explanations.length; i++)
+
+    //Create links a tokens for each class row in this.data.explanations.
+    for(var i = 0; i < this.data.explanations.length; i++)
     {
-      var source_i = aux_search.indexOf(objs.ids[i]);
-      var dec_order = objs.data.explanations[i]
-        .map(function(value, index){ return [index, value];  })
-        .sort(function(a, b){ return a[1] - b[1]; }) //compare values
-        .map(function(value){ return value[0]; })    //return indeces
-        .reverse();
+      var source_i = aux_search.indexOf(this.classes[i] + "_class");
 
-      var max_value = objs.data.explanations[i][ dec_order[0] ];
-      var min_value = objs.data.explanations[i][ dec_order[dec_order.length - 1] ];
-      var value = [];
-
-      if(min_value === 0 && min_value !== max_value)
+      if(source_i !== -1)
       {
-        var count = 0;
+        //Sorting explanations ids by their values
+        var dec_order = this.data.explanations[i]
+          .map(function(value, index){ return [index, value];  }) //real index, value
+          .sort(function(a, b){ return a[1] - b[1]; }) //compare and order values
+          .map(function(value){ return value[0]; })    //return real index
+          .reverse();
 
-        for(var j = 0; j < dec_order.length; j++)
+        var max_value = this.data.explanations[i][ dec_order[0] ];
+        var min_value = this.data.explanations[i][ dec_order[dec_order.length - 1] ];
+        var value = [];
+
+        if(min_value !== max_value)
         {
-          if(count == total_links)
-            break;
+          var count = 0;
 
-          if(objs.data.explanations[i][ dec_order[j] ] > 0)
-          {  
-            count++;
+          //Iterating over the class explanations to create links and tokens
+          for(var j = 0; j < dec_order.length; j++)
+          {
+            if(count == this.drawer.total_links)
+              break;
 
-            var tkn   = objs.data.tokens[ dec_order[j] ];
-            var target_i = aux_search.indexOf(tkn);
+            var filter = this.data.sentences[ dec_order[j] ];
 
-            if (target_i == -1)
+            if(this.data.explanations[i][ dec_order[j] ] > 0)
             {
-              token.push({desc: tkn, original_index: dec_order[j]});
-              aux_search.push(tkn);
-              target_i = aux_search.length - 1;
-            }  
+              if(this.selected_sentence.length > 0)
+                filter = this.data.sentences[ dec_order[j] ].filter(function(stn){ return _this.selected_sentence.indexOf(stn) !== -1;  })
 
-            links.push({source: source_i, target: target_i, value: objs.data.explanations[i][ dec_order[j] ]});
-            value.push(objs.data.explanations[i][ dec_order[j] ]);
+              if(filter.length > 0)
+              {
+                count++;
+
+                var tkn   = this.data.tokens[ dec_order[j] ];
+                var target_i = aux_search.indexOf(tkn);
+  
+                if (target_i == -1)
+                {
+                  token.push({
+                    id: tkn, 
+                    type: "token", 
+                    sentences: this.data.sentences[ dec_order[j] ],  
+                    position: this.data.position[ dec_order[j] ], 
+                    named_entity: this.data.named_entity[ dec_order[j]  ], 
+                    postag: this.data.postag[ dec_order[j] ],
+                    word: this.data.word[ dec_order[j] ]
+                  });
+                  aux_search.push(tkn);
+                  target_i = aux_search.length - 1;
+                }  
+  
+                links.push({source: source_i, target: target_i, value: this.data.explanations[i][ dec_order[j] ]});
+                value.push(this.data.explanations[i][ dec_order[j] ]);
+              }
+            }
           }
         }
-      }
 
-      class_values.push(value);
+        class_values.push(value);
+      }
     }
 
     //Sum all the link values of a class. Classes without links are initialized with Number.MAX_VALUE
@@ -663,21 +704,38 @@ class Explanation extends VisManager
         cls.fixedValue = class_min_value / 2;
     });
 
-    token = token.map(function(item, index) 
-    { 
-      return {
-        id: item.desc, 
-        type: "token", 
-        sentences: objs.data.sentences[item.original_index],  
-        position: objs.data.position[item.original_index], 
-        named_entity: objs.data.named_entity[item.original_index], 
-        postag: objs.data.postag[item.original_index],
-        word: objs.data.word[item.original_index],
-      }; 
-    });
+    return {nodes: node_objects.concat(token), links: links, sentences: PROJECTION_VIEW.sentences};
+  }   
+  show(data, clean=true)
+  { 
+    var objs = this.extract_data(data.objs);
+
+    this.classes = objs.ids;
+    this.data = objs.data
+
+    this.set_header("Class - " + this.classes.length + " samples - " + objs.name);
     
-    this.drawer.draw({nodes: node_objects.concat(token), links: links, sentences: PROJECTION_VIEW.sentences}, {}, LABEL_COLOR_PALETTE);
+    this.drawer.draw(this.process_data(), {}, LABEL_COLOR_PALETTE);
   }
+  select_items(items, redraw = true)    
+  {
+    var _this = this;
+    this.selected_classes = [];
+    this.selected_sentence = [];
+
+    if(FILTER.count(this.filter_type) != 0)
+    {
+      items.forEach(function(obj)
+      {
+        if(_this.selected_sentence.indexOf(obj.sentence_id) === -1)
+          _this.selected_sentence.push(obj.sentence_id);
+        if(_this.selected_classes.indexOf(obj.label) === -1)
+          _this.selected_classes.push(obj.label);
+      });
+    }
+    
+    this.drawer.draw(this.process_data(), {}, LABEL_COLOR_PALETTE);
+  }  
 }
 
 class TextView extends VisManager
@@ -729,7 +787,7 @@ class TextView extends VisManager
       var title = document.createElement("span");
       title.className = "font-weight-bold text-id";
       title.innerHTML = this.objs.ids[idx] + " (" + this.label[idx] + "):";
-      title.data = this.objs.ids[idx];
+      title.data = {id: this.objs.ids[idx], label: this.label[idx]};
 
       var text = document.createElement("span");
       text.innerHTML = this.objs.data.text[idx];   
@@ -758,7 +816,8 @@ class TextView extends VisManager
 
       PROJECTION_VIEW.select_items(text_id);
       WORD_VIEW.select_items(text_id);
-      EXPLANATION_VIEW.select_items(text_id);   
+      text_id = PROJECTION_VIEW.sentences.filter(function(stn){ return text_id.indexOf(stn.sentence_id) > -1 });
+      EXPLANATION_VIEW.select_items(text_id);    
     });    
   }
   drawer_callback(event)
@@ -770,19 +829,20 @@ class TextView extends VisManager
     if(event.target.classList.contains("text-selected"))
     {
       event.target.classList.remove("text-selected");   
-      var index = text_id.indexOf(event.target.data);
+      var index = text_id.indexOf(event.target.data.id);
       text_id.splice(index, 1);
     }  
     else 
     {
       event.target.classList.add("text-selected");
-      text_id.push(event.target.data);
+      text_id.push(event.target.data.id);
     }  
 
     text_id = FILTER.set_view(this.filter_type, text_id).get_view();
 
     PROJECTION_VIEW.select_items(text_id);
     WORD_VIEW.select_items(text_id);
+    text_id = PROJECTION_VIEW.sentences.filter(function(stn){ return text_id.indexOf(stn.sentence_id) > -1 });
     EXPLANATION_VIEW.select_items(text_id);    
   }
   get_unique_token(text_tokens)
@@ -823,7 +883,7 @@ class HighlightText
     //text_tokens: list of [token, [start pos, end pos]]
     text_tokens.sort(function(a, b) { return a[1][0] - b[1][0]; });
     var unique_token_id = text_tokens
-      .map(function(obj){ return obj[0]; })
+      .map(function(obj) { return obj === null ? obj : obj[0]; })
       .filter(function(value, index, array){ return array.indexOf(value) === index; })
       .sort();    
     var palette = d3.scaleOrdinal(d3.schemeSet3).domain(unique_token_id);

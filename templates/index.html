@@ -87,51 +87,51 @@
                                   </div>
                               </div>
                               <div class="card-body">
-                                  <div class="chart-area card-body-projection" id="projection_chart_area">
+                                  <div class="chart-area" id="projection_chart_area">
                                   </div>
                               </div>
                           </div>
                       </div>
 
                       <div class="col-xl-4 col-lg-5">
-                        <!-- Heatmap -->
+                        <!-- Word cloud -->
                         <div class="card shadow mb-4">
                             <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
-                                <h6 class="m-0 font-weight-bold text-primary" id="distance_header">Token - frequency</h6>
+                                <h6 class="m-0 font-weight-bold text-primary" id="wordcloud_header">Token - frequency</h6>
                                 <div class="dropdown no-arrow">
                                   <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink"
                                       data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                                       <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
                                   </a>
                                   <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in"
-                                      aria-labelledby="dropdownMenuLink" id="distance_list">
+                                      aria-labelledby="dropdownMenuLink" id="wordcloud_list">
                                   </div>
                                 </div>                                
                             </div>
-                            <div class="card-body">
-                                <div class="chart-area" id="distance_chart_area">
+                            <div class="card-body card-body-bottom">
+                                <div class="chart-area" id="wordcloud_chart_area">
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     <div class="col-xl-4 col-lg-5">
-                      <!-- Force -->
+                      <!-- Sankey diagram -->
                       <div class="card shadow mb-4">
                           <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
-                              <h6 class="m-0 font-weight-bold text-primary" id="token_header">Class - explanation</h6>
+                              <h6 class="m-0 font-weight-bold text-primary" id="explain_header">Class - explanation</h6>
                               <div class="dropdown no-arrow">
                                 <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink"
                                     data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                                     <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
                                 </a>
                                 <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in"
-                                    aria-labelledby="dropdownMenuLink" id="token_list">
+                                    aria-labelledby="dropdownMenuLink" id="explain_list">
                                 </div>
                               </div>                              
                           </div>
-                          <div class="card-body">
-                              <div class="chart-area" id="token_chart_area">
+                          <div class="card-body card-body-bottom">
+                              <div class="chart-area" id="explain_chart_area">
                               </div>
                           </div>
                       </div>
@@ -141,7 +141,7 @@
 
                     <!-- Content Row -->
                     <div class="row row-vis">                  
-                      <!-- Texts -->
+                      <!-- Text view -->
                       <div class="col-xl-12 col-lg-13">
                         <div class="card shadow mb-4">
                             <!-- Card Header - Dropdown -->
