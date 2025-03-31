@@ -5,7 +5,6 @@ import shap
 
 from lime import lime_tabular
 from sklearn import svm
-from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
 

@@ -506,8 +506,7 @@ class WordView extends VisManager
         sentences: objs.data.sentences[index],
         position: objs.data.position[index], 
         named_entity: objs.data.named_entity[index], 
-        postag: objs.data.postag[index],
-        word: objs.data.word[index],      
+        postag: objs.data.postag[index]   
       };
     })
     .sort(function(a, b) { return a.frequency - b.frequency; })
@@ -533,8 +532,7 @@ class WordView extends VisManager
             sentences: [],
             position: [], 
             named_entity: [], 
-            postag: [],
-            word: [],      
+            postag: []     
           };
 
           item.sentences.forEach(function(stn, j)
@@ -546,7 +544,6 @@ class WordView extends VisManager
               new_item.position.push(item.position[j]);
               new_item.named_entity.push(item.named_entity[j]);
               new_item.postag.push(item.postag[j]);
-              new_item.word.push(item.word[j]);
             }
           });
 
@@ -672,8 +669,7 @@ class Explanation extends VisManager
                     sentences: this.data.sentences[ dec_order[j] ],  
                     position: this.data.position[ dec_order[j] ], 
                     named_entity: this.data.named_entity[ dec_order[j]  ], 
-                    postag: this.data.postag[ dec_order[j] ],
-                    word: this.data.word[ dec_order[j] ]
+                    postag: this.data.postag[ dec_order[j] ]
                   });
                   aux_search.push(tkn);
                   target_i = aux_search.length - 1;

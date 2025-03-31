@@ -32,7 +32,7 @@ def load_stop_words():
 def is_number(value):
   number_pattern = "^(?:-(?:[1-9](?:\\d{0,2}(?:,\\d{3})+|\\d*))|(?:0|(?:[1-9](?:\\d{0,2}(?:,\\d{3})+|\\d*))))(?:.\\d+|)$"
 
-  return re.match(number_pattern, value) is not None
+  return value.isnumeric() or re.match(number_pattern, value) is not None
 
 def is_ordinal(value):
   number_pattern = "([0-9]*)(?:st|nd|rd|th)"
@@ -44,7 +44,29 @@ def has_letter(value):
 
   return re.search(letter_patern, value) is not None
 
+def filter_token(token_desc):
+  # pdb.set_trace()
+  filtered_token = []  
+  stop_words = load_stop_words()
+
+  for desc in token_desc:
+    # pdb.set_trace()
+    desc = '' if desc is None else desc.strip()
+    desc_stop = re.sub(r'[^\w\s]', '', desc)
+    
+    if (desc != '' and
+        not is_number(desc) and
+        not is_ordinal(desc) and
+        has_letter(desc) and
+        desc_stop.lower() not in stop_words):
+      filtered_token.append(desc)
+
+  # pdb.set_trace()
+  filtered_token.sort()
+  return np.unique(filtered_token)
+
 ## https://fouadroumieh.medium.com/nlp-entity-extraction-ner-using-python-nltk-68649e65e54b
+## https://stackoverflow.com/questions/31668493/get-indices-of-original-text-from-nltk-word-tokenize
 def nltk_extract_entity(text):
   tokens = text
 
@@ -55,19 +77,36 @@ def nltk_extract_entity(text):
   entity_tree = nltk.ne_chunk(tagged_tokens)
   tags = []
   entity_list = []
+  first_idx = 0  
   tag_desc = open(os.path.join(utils.main_cache_path, "llm", "nltk_data", "help/tagsets_json/PY3_json/upenn_tagset.json"))
   tag_desc = json.load(tag_desc)
 
   for subtree in entity_tree:
     if isinstance(subtree, nltk.tree.Tree):
       for leaf in subtree.leaves():
+        token_idx = text.find(leaf[0])
+        text      = text[token_idx + len(leaf[0]):] 
+
+        first_idx += token_idx
+
         desc = tag_desc[leaf[1]][0] + " (" + leaf[1] + ")" if leaf[1] in tag_desc else leaf[1]
-        tags.append( (leaf[0], desc)  )
+        tags.append( (leaf[0], desc, (first_idx, first_idx + len(leaf[0]))) )
+
         entity_list.append(subtree.label())
+
+        first_idx += len(leaf[0])
     else:
+      token_idx = text.find(subtree[0])
+      text      = text[token_idx + len(subtree[0]):] 
+
+      first_idx += token_idx
+
       desc = tag_desc[subtree[1]][0] + " (" + subtree[1] + ")" if subtree[1] in tag_desc else subtree[1]
-      tags.append( (subtree[0], desc)  )
+      tags.append( (subtree[0], desc, (first_idx, first_idx + len(subtree[0]))) )
+      
       entity_list.append(None)
+
+      first_idx += len(subtree[0])
 
   return tags, entity_list
 

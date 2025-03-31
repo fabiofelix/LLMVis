@@ -63,9 +63,9 @@ class TokenInfo
     html += "<tbody>";
     var aux_search = [];
 
-    for(let i = 0; i < data.word.length; i++)
+    for(let i = 0; i < data.postag.length; i++)
     {
-      var search_key = data.word[i] + "," + data.postag[i][1] + "," + (data.named_entity[i] === null ? "" : data.named_entity[i]);
+      var search_key = data.postag[i][0] + "," + data.postag[i][1] + "," + (data.named_entity[i] === null ? "" : data.named_entity[i]);
     
       if( aux_search.indexOf(search_key) === -1 )
       {  
@@ -73,7 +73,7 @@ class TokenInfo
         
         html += "<tr>";
 
-        var text = data.word[i];
+        var text = data.postag[i][0];
 
         var id     = data.id.trim()
         var index  = text.toLowerCase().indexOf(id.toLowerCase());

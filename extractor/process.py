@@ -1,6 +1,6 @@
-import numpy as np, torch, gc, os, pdb
+import numpy as np, torch, gc, pdb
 
-from multiprocessing import Pool
+from nlp import filter_token
 
 ##https://huggingface.co/sentence-transformers/bert-base-nli-mean-tokens
 ##https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2
@@ -19,21 +19,26 @@ def mean_pooling(features, attention_mask, axis = 1):
 
   return mean.numpy()
 
-def tag_indexOf(token, tags):
-  index = -1
-
+def tag_indexOf(token_pos, tags):
   for idx, tg in enumerate(tags):
-    if token in tg[0] or tg[0] in token:
+    tkn_pos  = token_pos[1]
+    tag_pos  = tg[2]
+
+    if tkn_pos[1] >= tag_pos[0] and tkn_pos[1] <= tag_pos[1]:
       return idx
 
-  return index
+  return -1
 
-def average_token_axis(text_token_feat, token_desc, model):
-  print("|- Averaging token axis")
+def average_feature_axis(text_token_feat, token_desc):
+  print("|- Averaging feature axis")
   idx2tkn = {}
   tkn2idx = {}
+  aux = []
 
-  filtered_desc = model.filter_token(np.unique(token_desc))
+  for row in token_desc:
+    aux.extend(row)
+
+  filtered_desc = filter_token(aux)
   
   for idx, tkn_desc in enumerate(filtered_desc):
     idx2tkn[idx] = tkn_desc
@@ -44,10 +49,9 @@ def average_token_axis(text_token_feat, token_desc, model):
   gc.collect()
 
   for key in text_token_feat:
-    key_shape  = text_token_feat[key].shape
     ##NOTE: never ever code this way
     ##new_tensor =  [ [ [0]  * key_shape[-1]  ] * len(idx2tkn) ] * key_shape[0]
-    new_tensor = [ [0] * len(idx2tkn) for _ in range(key_shape[0]) ]
+    new_tensor = [ [0] * len(idx2tkn) for _ in range(len(text_token_feat[key])) ]
 
     for txt_id, (tkn_feat, tkn_desc) in enumerate(zip(text_token_feat[key], token_desc)):
       filtered = [ dsc for dsc in np.unique(tkn_desc) if dsc in tkn2idx ]
@@ -55,6 +59,8 @@ def average_token_axis(text_token_feat, token_desc, model):
       ## One token can appear more than one time in the same text     
       ## Calculate the mean of these appearances
       ## And calculate the mean of the token features
+      tkn_desc = np.array(tkn_desc)
+
       for desc in filtered:
         desc_idx = np.where(desc == tkn_desc)[0]
         new_tensor[txt_id][ tkn2idx[desc] ] = tkn_feat[desc_idx].mean(axis = 0).mean()

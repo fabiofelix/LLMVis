@@ -74,7 +74,6 @@ def set_token_info(config, data, type_):
       obj["data"]["position"] = data["position"].tolist()
       obj["data"]["postag"] = data["postag"].tolist()
       obj["data"]["named_entity"] = data["named_entity"].tolist()   
-      obj["data"]["word"] = data["word"].tolist()
       break
 
 def process_token(config, obj_path, loaded_info_tkn, dataset, model, obj_type, opt, opt_type):
@@ -99,8 +98,7 @@ def process_token(config, obj_path, loaded_info_tkn, dataset, model, obj_type, o
             "main_token": None,
             "position": None,
             "postag": None,
-            "named_entity": None,
-            "word": None
+            "named_entity": None
           }  
         })  
 
@@ -151,8 +149,7 @@ def process_explanation(config, obj_path, loaded_exp, dataset, model, obj_type, 
           "main_token": None,
           "position": None,
           "postag": None,
-          "named_entity": None,
-          "word": None
+          "named_entity": None
         }  
       })
 

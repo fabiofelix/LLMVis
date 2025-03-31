@@ -1,15 +1,15 @@
 
-import sys, os, argparse, pdb, numpy as np, tqdm, torch, random, pandas as pd, gc
+import sys, os, argparse, pdb, numpy as np, tqdm, torch, random, pandas as pd
 import datasets, models, utils
 import umap
 
-from sklearn.metrics import pairwise_distances, silhouette_score
+from sklearn.metrics import silhouette_score
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 from sklearn.preprocessing import LabelEncoder
 
 from nlp import nltk_extract_entity
-from process import mean_pooling, tag_indexOf, average_token_axis
+from process import mean_pooling, tag_indexOf, average_feature_axis
 from xai import MyLime, MyShap
 
 def extract_token_info(token_desc, token_pos, text_data):
@@ -21,29 +21,27 @@ def extract_token_info(token_desc, token_pos, text_data):
     # tags, entities = spacy_extract_entity(text.text)
 
     for desc, pos in zip(token_desc[idx], token_pos[idx]):
-      desc = desc.item()
-      original_word = "" if pos is None else text.text[pos[1][0]:pos[1][1]].strip()
-      index = tag_indexOf(original_word, tags)
+      desc = desc.strip()
+      index = tag_indexOf(pos, tags)
 
       if desc not in tokens:
-        tokens[desc] = { "sentences":[], "position":[], "postag": [], "entity": [], "word": [] }
+        tokens[desc] = { "sentences":[], "position":[], "postag": [], "entity": []}
 
       tokens[desc]["sentences"].append(text.name)
       tokens[desc]["position"].append(pos)
       tokens[desc]["postag"].append(None if index == -1 else tags[index])
       tokens[desc]["entity"].append(None if index == -1 else entities[index])
-      tokens[desc]["word"].append(original_word)
+      
+    # pdb.set_trace()        
 
-      if index > -1:
-        tags[index][0].replace(original_word, "")
-
+  # pdb.set_trace()
   return tokens
 
 ## token:   <dataset>-<number_samples>_<model>_token_info.npz
-def save_token_info(args, token_desc, token_pos, text_data, idx2tkn, pattern_file, update = False):
+def save_token_info(args, token_desc, token_pos, text_data, idx2tkn, pattern_file):
   print("|- Saving info (token)")
   tokens_info = extract_token_info(token_desc, token_pos, text_data)
-  ##Force all information has the same order of idx2tkn
+  # #Force all information has the same order of idx2tkn
   tokens_info = {idx2tkn[idx]: tokens_info[idx2tkn[idx]] for idx in idx2tkn}
 
   tkn_ids = []
@@ -51,7 +49,6 @@ def save_token_info(args, token_desc, token_pos, text_data, idx2tkn, pattern_fil
   tkn_pos = []
   postag  = []
   entity  = []
-  word    = []
 
   for k in tokens_info.keys():
     tkn_ids.append(k)
@@ -59,27 +56,18 @@ def save_token_info(args, token_desc, token_pos, text_data, idx2tkn, pattern_fil
     tkn_pos.append(tokens_info[k]["position"])
     postag.append(tokens_info[k]["postag"])
     entity.append(tokens_info[k]["entity"])
-    word.append(tokens_info[k]["word"])
 
+  # pdb.set_trace()
   file_path = f"{pattern_file}_token_info.npz"
   file_path = os.path.join(args.output_path, file_path)
 
-  if update:
-    update_file = np.load(file_path, allow_pickle=True)
-    update_file = dict(update_file)
-    # update_file["named_entity"] = np.array(entity, dtype = object)
-    # update_file["postag"] = np.array(postag, dtype = object)
-    # update_file["word"] = np.array(word, dtype = object)
-    # np.savez(file_path, **update_file)
-  else:  
-    np.savez(file_path, 
-            token_ids = tkn_ids, 
-            text_ids = np.array(stn_ids, dtype = object), 
-            position = np.array(tkn_pos, dtype = object),
-            postag = np.array(postag, dtype = object),
-            named_entity = np.array(entity, dtype = object),
-            word = np.array(word, dtype = object)
-           )
+  np.savez(file_path, 
+          token_ids = tkn_ids, 
+          text_ids = np.array(stn_ids, dtype = object), 
+          position = np.array(tkn_pos, dtype = object),
+          postag = np.array(postag, dtype = object),
+          named_entity = np.array(entity, dtype = object)
+          )
     
   return tkn_ids, stn_ids    
 
@@ -181,7 +169,6 @@ def run(args, parser):
   text_token = {}
   text_token_feat = {}
 
-  token_ids = []
   token_desc = []
   token_pos = []
   attn_mask  = []
@@ -212,24 +199,9 @@ def run(args, parser):
       text_feat[b_idx].extend(mean_pooling(feat, masks, axis = 1))
 
     tkn_desc, tkn_pos = model.decode_tokens(batch.text.tolist(), tkn_ids)
-    token_ids.extend(tkn_ids)
     token_desc.extend(tkn_desc)
     token_pos.extend(tkn_pos)
     attn_mask.extend(masks)
-
-  ## It's necessary to left-pad the tokens again because batches can have different number of tokens.
-  ## After running pad_tokens:
-  ##   token_ids.shape  (batch_size, max_tokens)
-  ##   token_desc.shape (batch_size, max_tokens)
-  ##   token_pos.shape  (batch_size, max_tokens)
-  ##   attn_mask.shape  (batch_size, max_tokens)
-  ##   text_token_feat.shape  (batch_size, _max_tokens)
-  ## Note: 'max_tokens' is the MAX number of tokens per sample
-  print("|- Padding tokens")
-  token_ids, token_desc, token_pos, attn_mask = model.pad_tokens(token_ids, token_desc, token_pos, attn_mask)
-
-  for key in text_token_feat:
-    text_token_feat[key] = model.pad_features(text_token_feat[key])
 
   ## After running expand_token_axis
   ##   text_token[i].shape (batch_size, filtered_tokens)
@@ -237,7 +209,7 @@ def run(args, parser):
   ## Note: 'tokens' is the TOTAL number of tokens
   ##        idx2tkn = { idx: token_desc  }
   # text_token_feat, idx2tkn, tkn2idx = expand_token_axis(text_token_feat, token_ids, token_desc, model)
-  text_token, idx2tkn = average_token_axis(text_token_feat, token_desc, model)
+  text_token, idx2tkn = average_feature_axis(text_token_feat, token_desc)
 
   labels = text_data.topic.to_numpy() if text_data.iloc[0].label is None else text_data.label.to_numpy()
 
@@ -253,6 +225,9 @@ def run(args, parser):
 
   save_explanation(args, text_token, tkn_ids, stn_ids, labels, pattern_file_data_model_block)
 
+##  save_clusters(args, token_feat, tkn_ids, stn_ids, idx2tkn, pattern_file_data_model_block)
+##  save_distances(args, text_feat, text_data.name.to_numpy(), labels, pattern_file_data_model_block)
+  
   print("|- {} samples - {} tokens".format(text_data.shape[0], len(tkn_ids)))
 
 def main(*args):
