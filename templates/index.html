@@ -3,222 +3,233 @@
 
 <head>
 
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <meta name="description" content="">
-    <meta name="author" content="">
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="description" content="">
+  <meta name="author" content="">
 
-    <title>Transformer embedding visualization</title>
+  <title>LLM embedding visualization</title>
 
-    <!-- Custom fonts for this template-->
-    <link href="{{ url_for('static', filename='vendor/fontawesome-free/css/all.min.css') }}" rel="stylesheet" type="text/css">
-    <link
-        href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i"
-        rel="stylesheet">
+  <link rel="shortcut icon" href="#" />
+  <!-- Custom fonts for this template-->
+  <link href="{{ url_for('static', filename='vendor/fontawesome-free/css/all.min.css') }}" rel="stylesheet"
+    type="text/css">
+  <link
+    href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i"
+    rel="stylesheet">
 
-    <!-- Custom styles for this template-->
-    <link href="{{ url_for('static', filename='css/sb-admin-2.min.css') }}" rel="stylesheet">
+  <!-- Custom styles for this template-->
+  <link href="{{ url_for('static', filename='css/sb-admin-2.min.css') }}" rel="stylesheet">
 
-    <!-- Vis styles for this template-->
-    <link href="{{ url_for('static', filename='css/vis.css') }}" rel="stylesheet">
+  <!-- Vis styles for this template-->
+  <link href="{{ url_for('static', filename='css/vis.css') }}" rel="stylesheet">
 
 </head>
 
 <body id="page-top">
 
-    <!-- Page Wrapper -->
-    <div id="wrapper">
+  <!-- Page Wrapper -->
+  <div id="wrapper">
 
-        <!-- Content Wrapper -->
-        <div id="content-wrapper" class="d-flex flex-column">
+    <!-- Content Wrapper -->
+    <div id="content-wrapper" class="d-flex flex-column">
 
-            <!-- Main Content -->
-            <div id="content">              
-                <!-- Topbar -->
-                <nav class="navbar navbar-expand navbar-light bg-gray topbar mb-4 static-top shadow">
-                  <div class="navbar-header">
-                    <a class="navbar-brand" href="#" id="data_model_title">Transformer embedding visualization</a>
-                  </div>              
+      <!-- Main Content -->
+      <div id="content">
+        <!-- Topbar -->
+        <nav class="navbar navbar-expand navbar-light bg-gray topbar mb-4 static-top shadow">
+          <div class="navbar-header">
+            <a class="navbar-brand" href="#" id="data_model_title">LLM embedding visualization</a>
+          </div>
 
-                  <!-- Topbar Navbar -->
-                  <ul class="navbar-nav ml-auto">
+          <!-- Topbar Navbar -->
+          <ul class="navbar-nav ml-auto">
 
-                    <li class="nav-item no-arrow">
-                      <div class="spinner-border text-info invisible" role="status" id="loader_msg">
-                        <span class="sr-only">Loading...</span>
-                      </div>
-                    </li>  
-                    <div class="topbar-divider d-none d-sm-block"></div>
-                    <!-- Nav Item - Options -->
-                    <li class="nav-item dropdown no-arrow">
-                      <a class="nav-link dropdown-toggle" href="#" id="optionsDropdown" role="button"
-                      data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                        <i class="fa fa-tasks fa-fw"></i> <i class="fa fa-caret-down"></i>
-                      </a>
-                      <!-- Dropdown - Options -->
-                      <div class="dropdown-menu dropdown-menu-right shadow animated--grow-in"
-                          aria-labelledby="userDropdown" id="model_list">
-                      </div>
-                    </li>
-                  </ul>
+            <li class="nav-item no-arrow">
+              <div class="spinner-border text-info invisible" role="status" id="loader_msg">
+                <span class="sr-only">Loading...</span>
+              </div>
+            </li>
+            <div class="topbar-divider d-none d-sm-block"></div>
+            <!-- Nav Item - Options -->
+            <li class="nav-item dropdown no-arrow">
+              <a class="nav-link dropdown-toggle" href="#" id="optionsDropdown" role="button" data-toggle="dropdown"
+                aria-haspopup="true" aria-expanded="false">
+                <i class="fa fa-tasks fa-fw"></i> <i class="fa fa-caret-down"></i>
+              </a>
+              <!-- Dropdown - Options -->
+              <div class="dropdown-menu dropdown-menu-right shadow animated--grow-in" aria-labelledby="userDropdown"
+                id="model_list">
+              </div>
+            </li>
+          </ul>
 
-                </nav>
-                <!-- End of Topbar -->
+        </nav>
+        <!-- End of Topbar -->
 
-                <!-- Begin Page Content -->
-                <div class="container-fluid">
+        <!-- Begin Page Content -->
+        <div class="container-fluid">
 
-                    <!-- Content Row -->
-                    <div class="row row-vis">
-                      <div class="col-xl-4 col-lg-5">
-                          <!-- Scatter Plot  -->
-                          <div class="card shadow mb-4">
-                              <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
-                                  <h6 class="m-0 font-weight-bold text-primary" id="projection_header">Text - projected space</h6>
-                                  <div class="dropdown no-arrow">
-                                    <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink"
-                                        data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                        <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
-                                    </a>
-                                    <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in"
-                                        aria-labelledby="dropdownMenuLink" id="projection_list">
-                                    </div>
-                                  </div>
-                              </div>
-                              <div class="card-body">
-                                  <div class="chart-area" id="projection_chart_area">
-                                  </div>
-                              </div>
-                          </div>
-                      </div>
-
-                      <div class="col-xl-4 col-lg-5">
-                        <!-- Word cloud -->
-                        <div class="card shadow mb-4">
-                            <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
-                                <h6 class="m-0 font-weight-bold text-primary" id="wordcloud_header">Token - frequency</h6>
-                                <div class="dropdown no-arrow">
-                                  <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink"
-                                      data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                      <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
-                                  </a>
-                                  <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in"
-                                      aria-labelledby="dropdownMenuLink" id="wordcloud_list">
-                                  </div>
-                                </div>                                
-                            </div>
-                            <div class="card-body card-body-bottom">
-                                <div class="chart-area" id="wordcloud_chart_area">
-                                </div>
-                            </div>
-                        </div>
+          <!-- Content Row -->
+          <div class="row row-vis">
+            <div class="col-xl-4 col-lg-5">
+              <!-- Scatter Plot  -->
+              <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                  <h6 class="m-0 font-weight-bold text-primary" id="projection_header">Text - projected space</h6>
+                  <div class="dropdown no-arrow">
+                    <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink" data-toggle="dropdown"
+                      aria-haspopup="true" aria-expanded="false">
+                      <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
+                    </a>
+                    <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in"
+                      aria-labelledby="dropdownMenuLink" id="projection_list">
                     </div>
-
-                    <div class="col-xl-4 col-lg-5">
-                      <!-- Sankey diagram -->
-                      <div class="card shadow mb-4">
-                          <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
-                              <h6 class="m-0 font-weight-bold text-primary" id="explain_header">Class - explanation</h6>
-                              <div class="dropdown no-arrow">
-                                <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink"
-                                    data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                    <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
-                                </a>
-                                <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in"
-                                    aria-labelledby="dropdownMenuLink" id="explain_list">
-                                </div>
-                              </div>                              
-                          </div>
-                          <div class="card-body card-body-bottom">
-                              <div class="chart-area" id="explain_chart_area">
-                              </div>
-                          </div>
-                      </div>
-                  </div>                    
-
-                  </div>                    
-
-                    <!-- Content Row -->
-                    <div class="row row-vis">                  
-                      <!-- Text view -->
-                      <div class="col-xl-12 col-lg-13">
-                        <div class="card shadow mb-4">
-                            <!-- Card Header - Dropdown -->
-                            <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
-                                <h6 class="m-0 font-weight-bold text-primary" id="text_header">Text - plain</h6>
-                                
-                                <div id="text-pagination" class="ml-auto">
-                                  <ul class="list-group list-group-horizontal">
-                                    <a href="#" id="text-first" class="list-group-item list-group-item-action text-pagination-item">First</a>
-                                    <a href="#" id="text-previous" class="list-group-item list-group-item-action text-pagination-item">Previous</a>  
-                                    <span id="text-position" class="list-group-item text-pagination-item">0-0</span>
-                                    <a href="#" id="text-next" class="list-group-item list-group-item-action text-pagination-item">Next</a>  
-                                    <a href="#" id="text-last" class="list-group-item list-group-item-action text-pagination-item">Last</a>
-                                  </ul>
-                                </div>                          
-
-                                <div class="dropdown no-arrow">
-                                  <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink"
-                                      data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                      <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
-                                  </a>
-                                  <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in"
-                                      aria-labelledby="dropdownMenuLink" id="text_list">
-                                      <a class="dropdown-item" id="clear_text_selection" href="#">Clear selection</a>
-                                  </div>
-                                </div>                                
-                            </div>
-                            <!-- Card Body -->
-                            <div class="card-body" id="text_area">
-                            </div>
-                        </div>
-                    </div>
-                  </div>                    
-
-
+                  </div>
                 </div>
-                <!-- /.container-fluid -->
-
+                <div class="card-body">
+                  <div class="chart-area" id="projection_chart_area">
+                  </div>
+                </div>
+              </div>
             </div>
-            <!-- End of Main Content -->
 
-            <!-- Footer -->
-            <footer class="sticky-footer bg-white">
-                <div class="container my-auto">
-                    <div class="copyright text-center my-auto">
-                        <span>Copyright &copy; Your Website 2020</span>
+            <div class="col-xl-4 col-lg-5">
+              <!-- Word cloud -->
+              <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                  <h6 class="m-0 font-weight-bold text-primary" id="wordcloud_header">Token - frequency</h6>
+                  <div class="dropdown no-arrow">
+                    <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink" data-toggle="dropdown"
+                      aria-haspopup="true" aria-expanded="false">
+                      <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
+                    </a>
+                    <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in"
+                      aria-labelledby="dropdownMenuLink" id="wordcloud_list">
+                      <a class="dropdown-item" id="clear_word_selection" href="#">Clear selection</a>                      
                     </div>
+                  </div>
                 </div>
-            </footer>
-            <!-- End of Footer -->
+                <div class="card-body card-body-bottom">
+                  <div class="chart-area" id="wordcloud_chart_area">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-xl-4 col-lg-5">
+              <!-- Sankey diagram -->
+              <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                  <h6 class="m-0 font-weight-bold text-primary" id="explain_header">Class - explanation</h6>
+                  <div>
+                    <i class="fas fa-info-circle text-gray-400" id="explain_info"></i>
+                  </div>
+                  <div class="dropdown no-arrow">
+                    <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink" data-toggle="dropdown"
+                      aria-haspopup="true" aria-expanded="false">
+                      <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
+                    </a>
+                    <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in"
+                      aria-labelledby="dropdownMenuLink" id="explain_list">
+                    </div>
+                  </div>
+                </div>
+                <div class="card-body card-body-bottom">
+                  <div class="chart-area" id="explain_chart_area">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Content Row -->
+          <div class="row row-vis">
+            <!-- Text view -->
+            <div class="col-xl-12 col-lg-13">
+              <div class="card shadow mb-4">
+                <!-- Card Header - Dropdown -->
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                  <h6 class="m-0 font-weight-bold text-primary" id="text_header">Text - plain</h6>
+
+                  <div id="text-pagination" class="ml-auto">
+                    <ul class="list-group list-group-horizontal">
+                      <a href="#" id="text-first"
+                        class="list-group-item list-group-item-action text-pagination-item">First</a>
+                      <a href="#" id="text-previous"
+                        class="list-group-item list-group-item-action text-pagination-item">Previous</a>
+                      <span id="text-position" class="list-group-item text-pagination-item">0-0</span>
+                      <a href="#" id="text-next"
+                        class="list-group-item list-group-item-action text-pagination-item">Next</a>
+                      <a href="#" id="text-last"
+                        class="list-group-item list-group-item-action text-pagination-item">Last</a>
+                    </ul>
+                  </div>
+
+                  <div class="dropdown no-arrow">
+                    <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink" data-toggle="dropdown"
+                      aria-haspopup="true" aria-expanded="false">
+                      <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
+                    </a>
+                    <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in"
+                      aria-labelledby="dropdownMenuLink" id="text_list">
+                      <a class="dropdown-item" id="clear_text_selection" href="#">Clear selection</a>
+                    </div>
+                  </div>
+                </div>
+                <!-- Card Body -->
+                <div class="card-body" id="text_area">
+                </div>
+              </div>
+            </div>
+          </div>
+
 
         </div>
-        <!-- End of Content Wrapper -->
+        <!-- /.container-fluid -->
+
+      </div>
+      <!-- End of Main Content -->
+
+      <!-- Footer -->
+      <footer class="sticky-footer bg-white">
+        <div class="container my-auto">
+          <div class="copyright text-center my-auto">
+            <span>Copyright &copy; Your Website 2020</span>
+          </div>
+        </div>
+      </footer>
+      <!-- End of Footer -->
 
     </div>
-    <!-- End of Page Wrapper -->
+    <!-- End of Content Wrapper -->
 
-    <!-- Bootstrap core JavaScript-->
-    <link href="{{ url_for('static', filename='css/sb-admin-2.min.css') }}" rel="stylesheet">
+  </div>
+  <!-- End of Page Wrapper -->
 
-    <script src="{{ url_for('static', filename='vendor/jquery/jquery.min.js') }}"></script>
-    <script src="{{ url_for('static', filename='vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
+  <!-- Bootstrap core JavaScript-->
+  <link href="{{ url_for('static', filename='css/sb-admin-2.min.css') }}" rel="stylesheet">
 
-    <!-- Core plugin JavaScript-->
-    <script src="{{ url_for('static', filename='vendor/jquery-easing/jquery.easing.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='vendor/jquery/jquery.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
 
-    <!-- Custom scripts for all pages-->
-    <script src="{{ url_for('static', filename='js/sb-admin-2.min.js') }}"></script>
+  <!-- Core plugin JavaScript-->
+  <script src="{{ url_for('static', filename='vendor/jquery-easing/jquery.easing.min.js') }}"></script>
 
-    <!-- Vis scripts-->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/gh/holtzy/D3-graph-gallery@master/LIB/d3.layout.cloud.js"></script>    
-    <script src="https://unpkg.com/d3-sankey@0.12.3/dist/d3-sankey.js"></script>
-    <script src="{{ url_for('static', filename='js/third.js') }}"></script>    
-    <script src="{{ url_for('static', filename='js/lasso.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/svg.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/client.js') }}"></script>
+  <!-- Custom scripts for all pages-->
+  <script src="{{ url_for('static', filename='js/sb-admin-2.min.js') }}"></script>
+
+  <!-- Vis scripts-->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/holtzy/D3-graph-gallery@master/LIB/d3.layout.cloud.js"></script>
+  <script src="https://unpkg.com/d3-sankey@0.12.3/dist/d3-sankey.js"></script>
+  <script src="{{ url_for('static', filename='js/third.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/lasso.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/svg.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/client.js') }}"></script>
+
 </body>
 
 </html>

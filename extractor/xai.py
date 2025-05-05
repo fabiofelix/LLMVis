@@ -5,13 +5,46 @@ import shap
 
 from lime import lime_tabular
 from sklearn import svm
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import LabelEncoder, StandardScaler, MinMaxScaler
+from sklearn.metrics import classification_report
+
+class PreprocessData:
+  def __init__(self, data, labels, feature_freq):
+    self.__data = np.array(data)
+    self.__labels = np.array(labels)
+    self.__feature_freq = np.array(feature_freq)
+
+  def __split_report(self, y_train, y_test):
+    print("|-- Train/test split")
+    print("|-- {:<10s}{:<10s}{:<10s}{:<10s}".format("class", "#train", "#test", "total"))
+
+    train_labels, train_count = np.unique(y_train, return_counts = True)
+    test_labels, test_count = np.unique(y_test, return_counts = True)
+    total_train, total_test = 0, 0
+
+    for lb in np.unique(self.__labels):
+      total     = np.where(self.__labels == lb)[0]
+      train_idx = np.where(train_labels == lb)[0]
+      test_idx  = np.where(test_labels == lb)[0]
+
+      count_tr = 0 if train_idx.shape[0] == 0 else train_count[train_idx[0]]  
+      count_ts = 0 if test_idx.shape[0] == 0 else test_count[test_idx[0]]
+
+      total_train += count_tr
+      total_test += count_ts
+
+      print("|-- {:<10d}{:<10d}{:<10d}{:<10d}".format(lb, count_tr, count_ts, total.shape[0]))
+
+    print("|-- {:<10s}{:<10d}{:<10d}{:<10d}".format("total", total_train, total_test, total_train + total_test))    
 
 
 class Explainer:
-  def __init__(self):
-    self.scaler = StandardScaler()
+  ## As the tokens are represented by their feature-vector norm, a zero value implies in no presence of
+  ## a token in a text (sentence). If StandardScaler is used, zero values would be changed, creating a false environment for the explainer
+  def __init__(self, scaler_name = "minmax"):
+    self.scaler = MinMaxScaler() if scaler_name == "minmax" else StandardScaler()
     self.classifier = svm.SVC(kernel = "linear", C = 1, verbose = False, max_iter = 1000, probability = True, random_state=utils.SEED_VALUE) 
+    self.label_encoder = LabelEncoder()
     self.explainer = None
     self.exp_space = None
 
@@ -32,37 +65,71 @@ class Explainer:
     
     for lb in np.unique(labels):
       indices = np.where(labels == lb)[0]
-      aux_idx = np.random.choice(range(indices.shape[0]), size=test_samples_per_class, replace=False)
-      indices = indices[aux_idx]
-      indices.sort()
+      test_indices = []
 
-      X_test.extend(data[indices].tolist())
-      y_test.extend(labels[indices].tolist())
+      if indices.shape[0] > test_samples_per_class:
+        test_indices = np.random.choice(indices, size=test_samples_per_class, replace=False)
+      #Takes at least one sample per class   
+      elif indices.shape[0] > 1:
+        test_indices = [indices[0]]
 
-      indices = np.array([ i for i in range(data.shape[0]) if i not in indices  ])
+      test_indices.sort()
+      train_indices = np.setdiff1d(indices, test_indices)
 
-      X_train.extend(data[indices].tolist())
-      y_train.extend(labels[indices].tolist())
+      X_test.extend(data[test_indices].tolist())
+      y_test.extend(labels[test_indices].tolist())
+
+      X_train.extend(data[train_indices].tolist())
+      y_train.extend(labels[train_indices].tolist())
+    
+    print("|-- Train/test split")
+    print("|-- {:<10s}{:<10s}{:<10s}{:<10s}".format("class", "#train", "#test", "total"))
+
+    train_labels, train_count = np.unique(y_train, return_counts = True)
+    test_labels, test_count = np.unique(y_test, return_counts = True)
+    total_train, total_test = 0, 0
+
+
+    for lb in np.unique(labels):
+      total     = np.where(labels == lb)[0]
+      train_idx = np.where(train_labels == lb)[0]
+      test_idx  = np.where(test_labels == lb)[0]
+
+      count_tr = 0 if train_idx.shape[0] == 0 else train_count[train_idx[0]]  
+      count_ts = 0 if test_idx.shape[0] == 0 else test_count[test_idx[0]]
+
+      total_train += count_tr
+      total_test += count_ts
+
+      print("|-- {:<10d}{:<10d}{:<10d}{:<10d}".format(lb, count_tr, count_ts, total.shape[0]))
+
+    print("|-- {:<10s}{:<10d}{:<10d}{:<10d}".format("total", total_train, total_test, total_train + total_test))
 
     return X_train, X_test, y_train, y_test
 
-  def run(self, data, labels, feature_names, label_names, test_samples_per_class = 5):
+  def evaluate_classifier(self, X_test, y_test, label_codes, label_names):
+    y_pred = self.classifier.predict(X_test)
+
+    return classification_report(y_test, y_pred, zero_division = 0, labels = label_codes, target_names = label_names, output_dict=True)
+
+  def run(self, data, labels, feature_names, test_samples_per_class = 5):
+    labels = self.label_encoder.fit_transform(labels)
+
     X_train, X_test, y_train, y_test =  self.train_test_split(data, labels, test_samples_per_class=test_samples_per_class)
 
     X_train = self.scaler.fit_transform(X_train)
     X_test  = self.scaler.transform(X_test)
 
     self.classifier.fit(X_train, y_train)
-
-    self.create_explainer(X_train, X_test, feature_names, label_names)
+    eval = self.evaluate_classifier(X_test, y_test, self.label_encoder.transform(self.label_encoder.classes_), self.label_encoder.classes_)
+    self.create_explainer(X_train, X_test, feature_names, self.label_encoder.classes_)
 
     self.exp_space = {"original_label": [], "predicted_label": [], "predicted_prob": []}
 
     for feat in feature_names:
       self.exp_space[feat] = []
 
-    return self.do_run(X_test, y_test, feature_names, np.unique(labels), label_names)
-  
+    return self.do_run(X_test, y_test, feature_names, np.unique(labels), self.label_encoder.classes_), eval
 
 class MyLime(Explainer):
   def create_explainer(self, X_train, X_test, feature_names, label_names):
@@ -107,69 +174,3 @@ class MyShap(Explainer):
     # pdb.set_trace()
     return pd.DataFrame(self.exp_space)
 
-
-# def explain_lime(data, labels, feature_names, label_names, test_size = 10):
-#   # pdb.set_trace()
-#   # X_train, X_test, y_train, y_test = train_test_split(data, labels, test_size=test_size, stratify = labels, random_state=utils.SEED_VALUE)
-#   X_train, X_test, y_train, y_test = train_test_split(data, labels, test_size=test_size, random_state=utils.SEED_VALUE)
-
-#   scaler = StandardScaler()
-#   X_train = scaler.fit_transform(X_train)
-#   X_test = scaler.transform(X_test)
-
-#   classifier = svm.SVC(kernel = "linear", C = 1, verbose = False, max_iter = 1000, probability = True, random_state=utils.SEED_VALUE)
-#   classifier.fit(X_train, y_train)
-
-#   explainer = lime_tabular.LimeTabularExplainer(training_data=X_train, feature_names=feature_names, class_names=label_names,  mode='classification', random_state=utils.SEED_VALUE)
-#   exp_space = {"original_label": [], "predicted_label": [], "predicted_prob": []}
-
-#   for feat in feature_names:
-#     exp_space[feat] = []
-
-#   for sample, label in tqdm.tqdm(zip(X_test, y_test), desc = "|-- LIME explanation" , total = X_test.shape[0], unit= "sample"):
-#     lime_values = explainer.explain_instance(sample, classifier.predict_proba, num_features=sample.shape[0], labels=np.unique(labels))
-#     label_prob  = classifier.predict_proba(sample.reshape(1, -1))[0]
-#     label_pred  = np.argmax(label_prob)
-
-#     exp_space["original_label"].append(label_names[label])
-#     exp_space["predicted_label"].append(label_names[label_pred])
-#     exp_space["predicted_prob"].append(label_prob[label_pred])
-
-#     lime_values = lime_values.as_map()[label_pred]
-
-#     for values in lime_values:
-#       exp_space[ feature_names[values[0]] ].append(values[1])
-
-#   # pdb.set_trace()
-#   return pd.DataFrame(exp_space)
-
-
-# def explain_shap(data, labels, feature_names, label_names, test_size = 10):
-#   # pdb.set_trace()
-#   # X_train, X_test, y_train, y_test = train_test_split(data, labels, test_size=test_size, stratify = labels, random_state=utils.SEED_VALUE)
-#   X_train, X_test, y_train, y_test = train_test_split(data, labels, test_size=test_size, random_state=utils.SEED_VALUE)
-
-#   scaler = StandardScaler()
-#   X_train = scaler.fit_transform(X_train)
-#   X_test = scaler.transform(X_test)
-
-#   classifier = svm.SVC(kernel = "linear", C = 1, verbose = False, max_iter = 1000, probability = True, random_state=utils.SEED_VALUE)
-#   classifier.fit(X_train, y_train)
-#   label_pred = classifier.predict(X_test)
-
-#   explainer = shap.KernelExplainer(classifier.predict, X_test)
-#   shap_values = explainer(X_test)
-#   exp_space = {"original_label": [], "predicted_label": []}
-
-#   for feat in feature_names:
-#     exp_space[feat] = []
-
-#   for label, shap_v, lb_pred in tqdm.tqdm(zip(y_test, shap_values.values, label_pred), desc = "|-- SHAP explanation" , total = X_test.shape[0], unit= "sample"):
-#     exp_space["original_label"].append(label_names[label])
-#     exp_space["predicted_label"].append(label_names[lb_pred])
-
-#     for idx, values in enumerate(shap_v):
-#       exp_space[ feature_names[idx] ].append(values)
-
-#   # pdb.set_trace()
-#   return pd.DataFrame(exp_space)

@@ -6,10 +6,9 @@ import umap
 from sklearn.metrics import silhouette_score
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
-from sklearn.preprocessing import LabelEncoder
 
 from nlp import nltk_extract_entity
-from process import mean_pooling, tag_indexOf, average_feature_axis
+from process import mean_pooling, tag_indexOf, aggregate_feature_axis
 from xai import MyLime, MyShap
 
 def extract_token_info(token_desc, token_pos, text_data):
@@ -18,16 +17,16 @@ def extract_token_info(token_desc, token_pos, text_data):
 
   for idx, (_, text) in enumerate(text_data.iterrows()):
     tags, entities = nltk_extract_entity(text.text)
-    # tags, entities = spacy_extract_entity(text.text)
 
     for desc, pos in zip(token_desc[idx], token_pos[idx]):
       desc = desc.strip()
       index = tag_indexOf(pos, tags)
 
       if desc not in tokens:
-        tokens[desc] = { "sentences":[], "position":[], "postag": [], "entity": []}
+        tokens[desc] = { "sentences":[], "label": [], "position":[], "postag": [], "entity": []}
 
       tokens[desc]["sentences"].append(text.name)
+      tokens[desc]["label"].append(text.topic if text.label is None else text.label)
       tokens[desc]["position"].append(pos)
       tokens[desc]["postag"].append(None if index == -1 else tags[index])
       tokens[desc]["entity"].append(None if index == -1 else entities[index])
@@ -41,11 +40,12 @@ def extract_token_info(token_desc, token_pos, text_data):
 def save_token_info(args, token_desc, token_pos, text_data, idx2tkn, pattern_file):
   print("|- Saving info (token)")
   tokens_info = extract_token_info(token_desc, token_pos, text_data)
-  # #Force all information has the same order of idx2tkn
+  #Force all information has the same order of idx2tkn
   tokens_info = {idx2tkn[idx]: tokens_info[idx2tkn[idx]] for idx in idx2tkn}
 
   tkn_ids = []
   stn_ids = []
+  stn_label = []
   tkn_pos = []
   postag  = []
   entity  = []
@@ -53,52 +53,61 @@ def save_token_info(args, token_desc, token_pos, text_data, idx2tkn, pattern_fil
   for k in tokens_info.keys():
     tkn_ids.append(k)
     stn_ids.append(tokens_info[k]["sentences"])
+    stn_label.append(tokens_info[k]["label"])
     tkn_pos.append(tokens_info[k]["position"])
     postag.append(tokens_info[k]["postag"])
     entity.append(tokens_info[k]["entity"])
 
-  # pdb.set_trace()
   file_path = f"{pattern_file}_token_info.npz"
   file_path = os.path.join(args.output_path, file_path)
 
   np.savez(file_path, 
           token_ids = tkn_ids, 
           text_ids = np.array(stn_ids, dtype = object), 
+          text_label = np.array(stn_label, dtype = object),
           position = np.array(tkn_pos, dtype = object),
           postag = np.array(postag, dtype = object),
           named_entity = np.array(entity, dtype = object)
           )
-    
-  return tkn_ids, stn_ids    
+
+  return np.array(tkn_ids), np.array(stn_ids, dtype = object)
 
 ## explanation: <dataset>-<number_samples>_<model>-b<model_block>_class_explanation-<explanation_name>.npz
-def save_explanation(args, text_token, tkn_ids, stn_ids, labels, pattern_file, update = False):
+def save_explanation(args, text_token, tkn_ids, stn_ids, labels, pattern_file):
   print("|- Saving explanations (class)")
-  le = LabelEncoder()
-  labels = le.fit_transform(labels)
 
-  for key in text_token:
-    for explain_name in ["LIME", "SHAP"]:
-      if explain_name == "LIME":
-        explainer = MyLime()
-      elif explain_name == "SHAP":
-        explainer = MyShap()        
+  # Filter out outlier tokens indices based on their frequency (stn_ids)
+  filter = utils.get_filtered_indices([ len(ids) for ids in stn_ids ], lower_threshold=3)
+  tkn_ids = tkn_ids[filter]
+  stn_ids = stn_ids[filter]   
 
-      exp = explainer.run(text_token[key], labels, tkn_ids, le.classes_)
+  print("|-- Using {:10d} tokens".format(len(tkn_ids)))
+
+  for key, txt_tokens in text_token.items():
+    for explain_name, explain_class in [("LIME", MyLime), ("SHAP", MyShap)]:
+      explainer = explain_class()
+      filtered_text_token = np.array(txt_tokens)[:, filter]
+
+      exp, class_eval = explainer.run(filtered_text_token, labels, tkn_ids)
       predicted_label = exp.predicted_label.unique()
       exp = exp.set_index("predicted_label")
-      exp_abs_mean = []
 
-      for lb in le.classes_:
+      exp_abs_mean = []
+      class_report = []  
+
+      for lb in explainer.label_encoder.classes_:
         abs_mean = pd.Series([0] * len(tkn_ids), index = tkn_ids)
 
         if lb in predicted_label:
-          abs_mean = exp.loc[lb, tkn_ids].abs() if len(exp.loc[lb, tkn_ids].shape) == 1 else exp.loc[lb, tkn_ids].abs().mean()
+          row = exp.loc[lb, tkn_ids]
+          abs_mean = row.abs() if row.ndim == 1 else row.abs().mean()
 
         abs_mean = pd.concat([pd.Series(lb, index = ["predicted_label"]), abs_mean])
-        exp_abs_mean.append(abs_mean)
+        exp_abs_mean.append(abs_mean) 
 
-      exp_abs_mean = pd.DataFrame(exp_abs_mean)
+        class_report.append([ class_eval[lb]["precision"], class_eval[lb]["recall"], class_eval[lb]["f1-score"], class_eval["accuracy"] ])  
+
+      exp_abs_mean = pd.DataFrame(exp_abs_mean) 
 
       file_path = pattern_file.format(key) + "_class_explanation-{}.npz".format(explain_name)
       file_path = os.path.join(args.output_path, file_path)
@@ -106,16 +115,16 @@ def save_explanation(args, text_token, tkn_ids, stn_ids, labels, pattern_file, u
       np.savez(file_path, 
                class_ids = exp_abs_mean.predicted_label.to_numpy(), 
                token_ids = tkn_ids, 
-               text_ids = np.array(stn_ids, dtype = object), 
-               explanation=[ row[1:].to_numpy()  for _, row in exp_abs_mean.iterrows() ]
-               )
-
+               text_ids = stn_ids, 
+               explanation=[ row[1:].to_numpy()  for _, row in exp_abs_mean.iterrows() ],
+               class_report = class_report
+               )                    
 ## projection: <dataset>-<number_samples>_<model>-b<model_block>_sentence_proj-<projection_name>.npz
 def save_projection(args, text_feat, sentence_name, sentence_label, pattern_file, update = False):
   print("|- Saving projections (text)")
 
-  for key in text_feat:
-    sentence_feat = np.array(text_feat[key])
+  for key, txt_feat in text_feat.items():    
+    sentence_feat = np.array(txt_feat)
 
     for proj_name in ["PCA", "tSNE", "UMAP"]:
       projection = PCA(n_components = 2, random_state = utils.SEED_VALUE)    
@@ -126,7 +135,7 @@ def save_projection(args, text_feat, sentence_name, sentence_label, pattern_file
         projection = umap.UMAP(n_components = 2, random_state = utils.SEED_VALUE)
 
       vis_proj = projection.fit_transform(sentence_feat)
-      sh = silhouette_score(vis_proj, sentence_label) 
+      sh = silhouette_score(vis_proj, sentence_label)
 
       file_path = pattern_file.format(key) + "_sentence_proj-{}.npz".format(proj_name)
       file_path = os.path.join(args.output_path, file_path)
@@ -209,7 +218,7 @@ def run(args, parser):
   ## Note: 'tokens' is the TOTAL number of tokens
   ##        idx2tkn = { idx: token_desc  }
   # text_token_feat, idx2tkn, tkn2idx = expand_token_axis(text_token_feat, token_ids, token_desc, model)
-  text_token, idx2tkn = average_feature_axis(text_token_feat, token_desc)
+  text_token, idx2tkn = aggregate_feature_axis(text_token_feat, token_desc)
 
   labels = text_data.topic.to_numpy() if text_data.iloc[0].label is None else text_data.label.to_numpy()
 
@@ -222,8 +231,7 @@ def run(args, parser):
   tkn_ids, stn_ids = save_token_info(args, token_desc, token_pos, text_data, idx2tkn, pattern_file_data_model)
 
   save_projection(args, text_feat, text_data.name.to_numpy(), labels, pattern_file_data_model_block)
-
-  save_explanation(args, text_token, tkn_ids, stn_ids, labels, pattern_file_data_model_block)
+  save_explanation(args, text_token, tkn_ids, stn_ids, labels, pattern_file_data_model_block, row_ids=text_data.name.to_numpy())
 
 ##  save_clusters(args, token_feat, tkn_ids, stn_ids, idx2tkn, pattern_file_data_model_block)
 ##  save_distances(args, text_feat, text_data.name.to_numpy(), labels, pattern_file_data_model_block)

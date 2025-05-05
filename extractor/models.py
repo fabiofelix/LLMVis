@@ -1,5 +1,5 @@
 
-import os, torch, pdb
+import os, torch, pdb, numpy as np
 
 from enum import IntEnum
 from transformers import AutoTokenizer, AutoModelForCausalLM
@@ -39,6 +39,7 @@ class MyModelFamily():
 
   def create_model(self):
     self.model = AutoModelForCausalLM.from_pretrained(self.model_path, torch_dtype=torch.float16, device_map='auto')        
+    self.inc_pos = False
 
   def create_tokenizer(self):    
     self.tokenizer = AutoTokenizer.from_pretrained(self.model_path, truncation_side = "right")
@@ -99,7 +100,7 @@ class MyModelFamily():
 
     for idx in return_blocks:
       hidden_state = results["hidden_states"][idx].detach().cpu().numpy()
-      block_feature.append(hidden_state)
+      block_feature.append(hidden_state.astype(np.float32))
       block_idx.append(idx if idx >= 0 else len(results.hidden_states) + idx)
 
     torch.cuda.empty_cache()

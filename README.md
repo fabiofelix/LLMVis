@@ -1,9 +1,15 @@
 
 1. Create a python virtual environment with pip, conda, etc.
-2. Install the dependences
+2. Install the dependences for extraction and visualization
 
 ```
   pip install -r requirements.txt
+```
+
+  - If one wants to run only the Visualization system, use
+
+```
+  pip install -r requirements_vis.txt
 ```
 
 3. Run the following code to extract the features
@@ -12,7 +18,7 @@
   python extract_features.py 
   
   -d  dataset index (required)
-      (0) Kaggle paper abstracts
+      (0) PaperAbstract
       (1) TinyStories
       (2) BBCNews
   -m  model index (required)
@@ -20,18 +26,18 @@
       (1) Llama 3.1 (8B)
       (2) Gemma 2 (9B)
   -o  path to save the outputs (required)
-  -s  path to load the data (if the dataset loads from files, such as Kaggle, TinyStories, and BBCNews)
+  -s  path to load the data (if the dataset loads from files, such as PaperAbstract, TinyStories, and BBCNews)
   -n  number of samples to load from the dataset (default = 100)
   -b  batch size (default = 100)
 ``` 
 
 4. Available datasets
 
-  - [Kaggle dataset](https://www.kaggle.com/datasets/blessondensil294/topic-modeling-for-research-articles?select=test.csv) with paper abstracts
+  - [PaperAbstract](https://www.kaggle.com/datasets/blessondensil294/topic-modeling-for-research-articles?select=test.csv) with paper abstracts
   - [TinyStories-V2](https://huggingface.co/datasets/roneneldan/TinyStories) (generated with GPT-4) with small children stories
   - [BBCNews](http://mlg.ucd.ie/datasets/bbc.html)
 
-5. Copy all the .npz files generated to the *data folder*
+5. After extraction, copy all the .npz files generated to the *data folder*
 
 6. Run the following command to run *server.py* code inside the right environment and open the *Running on* link on the browser
 

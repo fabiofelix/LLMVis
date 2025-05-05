@@ -35,51 +35,18 @@ if os.path.isdir(main_cache_path):
 #to work with: torch.multiprocessing.set_start_method('spawn')
 sys.path.append(omni_path)
 
-def remove_otulier(x):
-  if type(x) == list:
-    x = np.array(x)
+def get_filtered_indices(x, lower_threshold = 1):
+  x = np.array(x)
 
-  while True:
-    q1  = np.percentile(x, 25)
-    q3  = np.percentile(x, 75)
-    iqr = q3 - q1
+  ## discards minimum and maximum values
+  min_value = np.max([np.min(x), lower_threshold])
+  max_value = np.max(x)
+  x_aux     = x[(x > min_value) & (x < max_value)]
 
-    begin_shape = x.shape
+  q1 = np.quantile(x_aux, 0.25)
+  q3 = np.quantile(x_aux, 0.75)
+  iqr = q3 - q1
 
-    x = x[x >= q1 - iqr, ] #maiores que o limite inferior (remove os menores)
-    x = x[x <= q3 + iqr, ] #menores que o limite superior (remove os maiores)
+  filter = (x > np.max((min_value, q1 - 1.5 * iqr))) & (x < np.min((max_value, q3 + 1.5 * iqr)))
 
-    if begin_shape == x.shape:
-      break    
-
-  return x  
-
-def moving_average(x, w):
-    return np.convolve(x, np.ones(w), 'same') / w
-
-def otsu_threshold(x, bins = 100, remove_out = False, smooth_window = None):    
-  #remove outlier
-  if remove_out:
-    x = remove_otulier(x)
-
-  hist, edge = np.histogram(x, bins = bins)
-  mids = [ np.mean([edge[i - 1], edge[i]]) for i in range(1, edge.shape[0])  ]
-
-  if smooth_window is not None:
-    hist = moving_average(hist, smooth_window)
-
-  prop     = hist if np.sum(hist) == 1 else hist / np.sum(hist)
-  omega    = np.cumsum(prop)
-  mu       = np.cumsum(mids * prop)
-  muT      = np.sum(mids * prop)    
-  max_varB = -1
-  maxk     = -1
-
-  for k in range(0, len(prop)):
-    varB = (muT * omega[k] - mu[k])**2 / (1 if omega[k] == 0 or omega[k] == 1 else omega[k] * (1 - omega[k]))
- 
-    if varB > max_varB :
-      max_varB = varB
-      maxk     = k  
-
-  return mids[maxk]
+  return np.where(filter)[0]

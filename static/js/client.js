@@ -19,7 +19,7 @@ document.addEventListener("DOMContentLoaded", function()
 
   PROJECTION_VIEW = new Projection("projection_list", "projection_header", "projection_chart_area");
   WORD_VIEW = new WordView("wordcloud_list", "wordcloud_header", "wordcloud_chart_area");
-  EXPLANATION_VIEW = new Explanation("explain_list", "explain_header", "explain_chart_area")
+  EXPLANATION_VIEW = new Explanation("explain_list", "explain_header", "explain_chart_area", "explain_info")
   TEXT_VIEW = new TextView("text_list", "text_header", "text_area");
 
   fetch("/config")
@@ -42,7 +42,7 @@ class Tooltip
       this.div.id = "tooltip";
       this.div.className = "hidden";
 
-      var aux = document.createElement("p");
+      const aux = document.createElement("p");
       this.msg = document.createElement("span");
       this.msg.id = "value";
 
@@ -56,7 +56,7 @@ class Tooltip
   {
     this.msg.innerHTML = text;
 
-    var x_offset = 3, y_offset = 3,
+    let x_offset = 3, y_offset = 3,
         x = position[0] + x_offset,
         y = position[1] + y_offset;
 
@@ -84,43 +84,43 @@ class LoaderControl
   {
     this.div = document.getElementById(div_id);
     this.control_list = control_list;
-  }  
+  }
   begin()
   {
     this.div.classList.remove("invisible");
 
-    for(var i = 0; i < this.control_list.length; i++)
+    for(let control_name of this.control_list)
     {
-      var by_class = document.getElementsByClassName(this.control_list[i]);
+      let control_by_class = document.getElementsByClassName(control_name);
 
-      for(var j = 0; j < by_class.length; j++)
+      for(let control of control_by_class)
       {
-        by_class[j].classList.add("content-disabled");
+        control.classList.add("content-disabled");
       }
 
-      var by_id = document.getElementById(this.control_list[i])
+      let control_by_id = document.getElementById(control_name)
 
-      if(by_id != null)
-        by_id.classList.add("content-disabled");
+      if(control_by_id != null)
+        control_by_id.classList.add("content-disabled");
     }
   }
   end()
   {
     this.div.classList.add("invisible");
 
-    for(var i = 0; i < this.control_list.length; i++)
+    for(let control_name of this.control_list)
     {
-      var by_class = document.getElementsByClassName(this.control_list[i]);
+      let control_by_class = document.getElementsByClassName(control_name);
 
-      for(var j = 0; j < by_class.length; j++)
+      for(let control of control_by_class)
       {
-        by_class[j].classList.remove("content-disabled");
+        control.classList.remove("content-disabled");
       }
 
-      var by_id = document.getElementById(this.control_list[i])
+      let control_by_id = document.getElementById(control_name)
 
-      if(by_id != null)
-        by_id.classList.remove("content-disabled");
+      if(control_by_id != null)
+        control_by_id.classList.remove("content-disabled");
     }
   }
 }
@@ -182,12 +182,12 @@ class FilterManager
       return null;
     }  
 
-    var keys = Object.keys(this).filter(function(value) {  return value.includes("server_")  });
-    var config = {};
+    const key_list = Object.keys(this).filter(function(value) {  return value.includes("server_")  });
+    let config = {};
 
-    for(var k = 0; k < keys.length; k++)
+    for(let key of key_list)
     {
-      config[ keys[k].split("_")[1] ] = this[keys[k]];
+      config[ key.split("_")[1] ] = this[key];
     }    
 
     return config;
@@ -198,7 +198,7 @@ class FilterManager
     {
       this["view_" + filter_type] = value;
 
-      for(var i = 0; i < this.call_back.onset.length; i++)
+      for(let i = 0; i < this.call_back.onset.length; i++)
         this.call_back.onset[i](filter_type, value);
     }  
     else 
@@ -219,12 +219,12 @@ class FilterManager
     }  
 
     //================== RETURNS INTERSECTION ==================//
-    var keys = Object.keys(this).filter(function(value) {  return value.includes("view_")  });
-    var aux_ids = this[keys[0]];
+    const key_list = Object.keys(this).filter(function(value) {  return value.includes("view_")  });
+    let aux_ids = this[key_list[0]];
 
-    for(var k = 1; k < keys.length; k++)
+    for(let k = 1; k < key_list.length; k++)
     {
-      var current_filter = this[keys[k]];
+      let current_filter = this[key_list[k]];
 
       if(aux_ids.length == 0)
         aux_ids = current_filter;
@@ -236,20 +236,20 @@ class FilterManager
   }
   count(except)
   {
-    var keys = Object.keys(this).filter(function(value) {  return value.includes("view_")  });
-    var count = 0;
+    const key_list = Object.keys(this).filter(function(value) {  return value.includes("view_")  });
+    let count = 0;
 
-    for(var k = 0; k < keys.length; k++)
+    for(let key of key_list)
     {
       if(except === undefined || except === null)
-        count += this[keys[k]].length;
+        count += this[key].length;
       else if(except == "projection")
       {
-        if(!keys[k].includes("lasso") && !keys[k].includes("class"))
-          count += this[keys[k]].length;
+        if(!key.includes("lasso") && !key.includes("class"))
+          count += this[key].length;
       }
-      else if(!keys[k].includes(except))
-        count += this[keys[k]].length;
+      else if(!key.includes(except))
+        count += this[key].length;
     }
 
     return count;
@@ -258,29 +258,42 @@ class FilterManager
 
 class VisManager
 {
-  constructor(div_list_id, header_id, chart_id)
+  constructor(div_list_id, header_id, chart_id, info_id)
   {
     this.div_list = document.getElementById(div_list_id);
     this.header = document.getElementById(header_id);
     this.div_chart = document.getElementById(chart_id);
+    this.info_button = info_id === undefined ? null : document.getElementById(info_id);
     this.filter_type = null;
     this.source_type = null;
-    this.label = null;
-    this.topic = null;
     this.drawer = null;
+
+    if(this.info_button !== null)
+    {
+      const _this = this;
+
+      this.info_button.addEventListener("mouseover", function(event)
+      { 
+        const info = _this.get_info();
+
+        if(info !== null)
+          TOOLTIP.show(info, [event.clientX, event.clientY]); 
+      });
+      this.info_button.addEventListener("mouseout", function(event){  TOOLTIP.hide(); });
+    }  
   }
   create_list(items)
   {
-    var _this = this;
+    const _this = this;
     this.div_list.innerHTML = "";
 
-    for(var i = 0; i < items.length; i++) 
+    for(let text of items) 
     {
-      var link = document.createElement("a");
+      let link = document.createElement("a");
 
       link.className = "dropdown-item";
       link.href = "#";
-      link.innerHTML = items[i];
+      link.innerHTML = text;
       link.addEventListener("click", function(event){ return _this.filter(event); });
 
       this.div_list.appendChild(link);
@@ -292,10 +305,10 @@ class VisManager
   }
   extract_data(objs)
   {
-    for(var i = 0; i < objs.length; i++) 
+    for(let obj of objs)
     { 
-      if(objs[i].type == this.filter_type)
-        return objs[i];
+      if(obj.type == this.filter_type)
+        return obj;
     }    
 
     return null;
@@ -330,6 +343,10 @@ class VisManager
   {
     throw new Error('You have to implement the method drawer_callback!');
   }
+  get_info()
+  {
+    throw new Error('You have to implement the method get_info!');
+  }
   select_items(items, redraw = true)    
   {
     this.drawer.select(FILTER.count(this.filter_type) === 0 ? [] : items, redraw);
@@ -338,9 +355,9 @@ class VisManager
 
 class Model extends VisManager
 {
-  constructor(div_list_id, header_id, chart_id)
+  constructor(div_list_id, header_id, chart_id, info_id)
   {
-    super(div_list_id, header_id, chart_id);
+    super(div_list_id, header_id, chart_id, info_id);
     this.filter_type = "model";
   }
   show(data)
@@ -360,17 +377,15 @@ class Model extends VisManager
 
 class Projection extends VisManager
 {
-  constructor(div_list_id, header_id, chart_id)
+  constructor(div_list_id, header_id, chart_id, info_id)
   {
-    super(div_list_id, header_id, chart_id);
+    super(div_list_id, header_id, chart_id, info_id);
     this.filter_type = "projection";
     this.secondary_filter_type = ["lasso", "class"];
     this.source_type = "sentence";
     this.drawer = new ScatterPlot(chart_id, TOOLTIP);
-    var _this = this;
+    const _this = this;
     this.drawer.on("end", function(data, second_filter_type){ return _this.drawer_callback(data, second_filter_type); });
-    this.label = null;
-    this.topic = null;
     this.sentences_ = null;
   }
   get sentences()
@@ -379,10 +394,10 @@ class Projection extends VisManager
   }
   drawer_callback(data, second_filter_type)
   {
-    var text_ids = FILTER.set_view(second_filter_type, data).get_view();
+    const text_ids = FILTER.set_view(second_filter_type, data).get_view();
 
     WORD_VIEW.select_items(text_ids);
-    var text_label = this.sentences_.filter(function(stn){ return text_ids.indexOf(stn.sentence_id) > -1 });
+    const text_label = this.sentences_.filter(function(stn){ return text_ids.indexOf(stn.sentence_id) > -1 });
     EXPLANATION_VIEW.select_items(text_label);
     TEXT_VIEW.select_items(text_ids);
 
@@ -390,20 +405,14 @@ class Projection extends VisManager
   }
   show(data, clean=true)
   {
-    var objs = this.extract_data(data.objs);
+    const objs = this.extract_data(data.objs);
     this.set_header("Text - " + objs.data.length + " samples - " + objs.name + " - sh: " + objs.silhouette.toFixed(4) );
-    var sum = {min_x: Number.MAX_VALUE, min_y: Number.MAX_VALUE, max_x: Number.MIN_VALUE, max_y: Number.MIN_VALUE};
-    var unique_label = [];
-
-    if(objs.label !== null)
-      this.label = objs.label;
-    if(objs.topic !== null)
-      this.topic = objs.topic;   
-
-    var _this = this; 
+    const sum = {min_x: Number.MAX_VALUE, min_y: Number.MAX_VALUE, max_x: Number.MIN_VALUE, max_y: Number.MIN_VALUE};
+    const unique_label = [];
+    const _this = this; 
     this.sentences_ = [];
 
-    var formated_objs = objs.data.map(function(value, idx)
+    const formated_objs = objs.data.map(function(value, idx)
     {
       sum.min_x = Math.min(sum.min_x, value[0]);
       sum.max_x = Math.max(sum.max_x, value[0]);
@@ -411,7 +420,7 @@ class Projection extends VisManager
       sum.min_y = Math.min(sum.min_y, value[1]);
       sum.max_y = Math.max(sum.max_y, value[1]);
 
-      var label = _this.label[idx] == null ? _this.topic[idx] : _this.label[idx];
+      let label = objs.label[idx];
 
       if(unique_label.indexOf(label) == -1)
         unique_label.push(label);
@@ -428,37 +437,24 @@ class Projection extends VisManager
 
 class WordView extends VisManager
 {
-  constructor(div_list_id, header_id, chart_id)
+  constructor(div_list_id, header_id, chart_id, info_id)
   {
-    super(div_list_id, header_id, chart_id);
+    super(div_list_id, header_id, chart_id, info_id);
     this.filter_type = "word";
     this.source_type = "token";    
     this.drawer = new WordCloud(chart_id, TOOLTIP);
     this.words = null;
-    var _this = this;
+    const _this = this;
     this.drawer.on("end", function(data, position){ _this.drawer_callback(data, position); });
-    FILTER.addEventListener("onset", function(filter_type, value)
-    {
-      if(filter_type !== _this.filter_type && value.length === 0)
-      {
-        var text_ids = FILTER.set_view(_this.filter_type, []).get_view();
 
-        PROJECTION_VIEW.select_items(text_ids, PROJECTION_VIEW.secondary_filter_type.indexOf(filter_type) !== -1);
-
-        var text_label = [];
-        text_label = PROJECTION_VIEW.sentences.filter(function(stn){ return text_ids.indexOf(stn.sentence_id) > -1 });
-        EXPLANATION_VIEW.select_items(text_label, EXPLANATION_VIEW.filter_type === filter_type);
-
-        TEXT_VIEW.select_items(text_ids, TEXT_VIEW.filter_type === filter_type);
-      }  
-    });
+    document.getElementById("clear_word_selection").addEventListener("click", function(event){ _this.drawer.clear() }); 
   }  
   drawer_callback(data, position)
   {
-    var data_filtered = FILTER.set_view(this.filter_type, data).get_view();
-    var text_ids = {};
+    const data_filtered = FILTER.set_view(this.filter_type, data).get_view();
+    let text_ids = {};
 
-    for(var i = 0; i < data.length; i++)
+    for(let i = 0; i < data.length; i++)
     {
       if(data_filtered.indexOf(data[i]) !== -1 && position[i] !== null)
       {
@@ -468,9 +464,9 @@ class WordView extends VisManager
         text_ids[data[i]].push( position[i] );
       } 
     }    
-
+    
     PROJECTION_VIEW.select_items(Object.keys(text_ids).length == 0 ? data_filtered : Object.keys(text_ids));
-    var text_label = [];
+    let text_label = [];
 
     if(Object.keys(text_ids).length == 0)
       text_label = PROJECTION_VIEW.sentences.filter(function(stn){ return data_filtered.indexOf(stn.sentence_id) > -1 });
@@ -482,11 +478,11 @@ class WordView extends VisManager
   }  
   zipf_law(words)
   {
-    var samples = 50;
-    var min_freq = 0.05;
-    var max_freq = 0.95;
-    var max_norm_factor = words[words.length - 1].frequency;
-    var filtered = words;
+    const samples = 50;
+    const min_freq = 0.05;
+    const max_freq = 0.95;
+    const max_norm_factor = words[words.length - 1].frequency;
+    let filtered = words;
     
     if(words[0].frequency !== words[words.length - 1].frequency)
       filtered = words.filter(function(item) { return (item.frequency / max_norm_factor) >= min_freq && (item.frequency / max_norm_factor) <= max_freq; });
@@ -495,7 +491,7 @@ class WordView extends VisManager
   }    
   show(data, clean=true)
   {
-    var objs = this.extract_data(data.objs);
+    const objs = this.extract_data(data.objs);
     this.words = objs.ids
     .map(function(value, index)
     {
@@ -511,21 +507,21 @@ class WordView extends VisManager
     })
     .sort(function(a, b) { return a.frequency - b.frequency; })
     
-    var filtered = this.zipf_law(this.words);
+    const filtered = this.zipf_law(this.words);
     this.set_header("Token - " + filtered.length + " samples more frequent");
     
     this.drawer.draw(filtered, {min_freq: filtered[0].frequency, max_freq: filtered[filtered.length - 1].frequency});
   }
   select_items(items, redraw = true)
   {
-    var filtered = this.words;
+    let filtered = this.words;
 
     if (FILTER.count(this.filter_type) != 0)
     {
       filtered = this.words 
         .map(function(item, i) 
         {  
-          var new_item = {
+          const new_item = {
             id: item.id, 
             text: item.text,
             frequency: 0, 
@@ -565,9 +561,9 @@ class WordView extends VisManager
 
 class Explanation extends VisManager
 {
-  constructor(div_list_id, header_id, chart_id)
+  constructor(div_list_id, header_id, chart_id, info_id)
   {
-    super(div_list_id, header_id, chart_id);
+    super(div_list_id, header_id, chart_id, info_id);
     this.filter_type = "explanation";
     this.source_type = "class";
     this.drawer = new SankyDiagram(chart_id, TOOLTIP);
@@ -575,17 +571,17 @@ class Explanation extends VisManager
     this.data = null;
     this.selected_classes = [];
     this.selected_sentence = [];    
-    var _this = this;
+    const _this = this;
     this.drawer.on("end", function(data, position){ _this.drawer_callback(data, position); });    
   }
   drawer_callback(data, position)
   {
-    var data_filtered = data
+    let data_filtered = data
       .filter(function(value, index, array) { return array.indexOf(value) === index; });
     data_filtered = FILTER.set_view(this.filter_type, data_filtered).get_view();
-    var text_ids = {};
+    let text_ids = {};
 
-    for(var i = 0; i < data.length; i++)
+    for(let i = 0; i < data.length; i++)
     {
       if(data_filtered.indexOf(data[i]) !== -1)
       {
@@ -595,7 +591,7 @@ class Explanation extends VisManager
         if(position.length > 0)
           text_ids[data[i]].push( position[i] );
       } 
-    }    
+    }  
     
     PROJECTION_VIEW.select_items(Object.keys(text_ids) == 0 ? data_filtered : Object.keys(text_ids));
     WORD_VIEW.select_items(Object.keys(text_ids) == 0 ? data_filtered : Object.keys(text_ids));
@@ -603,80 +599,80 @@ class Explanation extends VisManager
   } 
   process_data(filter_class, filter_sentence)
   {
-    var _this = this;
+    const _this = this;
     //List with all nodes (classes + tokens)
-    var aux_search = Object.assign([], this.classes);
+    let aux_search = Object.assign([], this.classes);
 
     if(this.selected_classes.length > 0)
       aux_search = this.classes.filter(function(cls){ return _this.selected_classes.indexOf(cls) !== -1 });
 
-    var node_objects = aux_search.map(function(item, i) { return {id: item, type: "class"}; });
+    let node_objects = aux_search.map(function(item, i) { return {id: item, type: "class"}; });
     //Avoides classes and tokens with the same name
     aux_search = aux_search.map(function(item, i) { return item + "_class"; });
     //Used to set a fixedValue for classes that don't have connections
-    var class_values = [];
-    var token = [];
-    var links  = [];
+    let class_values = [];
+    let token = [];
+    let links  = [];
 
 
     //Create links a tokens for each class row in this.data.explanations.
-    for(var i = 0; i < this.data.explanations.length; i++)
+    for(let i = 0; i < this.data.explanations.length; i++)
     {
-      var source_i = aux_search.indexOf(this.classes[i] + "_class");
+      let source_i = aux_search.indexOf(this.classes[i] + "_class");
 
       if(source_i !== -1)
       {
         //Sorting explanations ids by their values
-        var dec_order = this.data.explanations[i]
+        let dec_order = this.data.explanations[i]
           .map(function(value, index){ return [index, value];  }) //real index, value
-          .sort(function(a, b){ return a[1] - b[1]; }) //compare and order values
-          .map(function(value){ return value[0]; })    //return real index
-          .reverse();
+          .sort(function(a, b){ return b[1] - a[1]  }) //compare and order values
+          .map(function(value){ return value[0]; });   //return real index
 
-        var max_value = this.data.explanations[i][ dec_order[0] ];
-        var min_value = this.data.explanations[i][ dec_order[dec_order.length - 1] ];
-        var value = [];
+        let max_value = this.data.explanations[i][ dec_order[0] ];
+        let min_value = this.data.explanations[i][ dec_order[dec_order.length - 1] ];
+        let value = [];
 
         if(min_value !== max_value)
         {
-          var count = 0;
+          let count = 0;
 
           //Iterating over the class explanations to create links and tokens
-          for(var j = 0; j < dec_order.length; j++)
+          for(let j of dec_order)
           {
             if(count == this.drawer.total_links)
               break;
 
-            var filter = this.data.sentences[ dec_order[j] ];
+            let filter = this.data.sentences[j];
 
-            if(this.data.explanations[i][ dec_order[j] ] > 0)
+            if(this.data.explanations[i][j] > 0)
             {
               if(this.selected_sentence.length > 0)
-                filter = this.data.sentences[ dec_order[j] ].filter(function(stn){ return _this.selected_sentence.indexOf(stn) !== -1;  })
+                filter = this.data.sentences[j].filter(function(stn){ return _this.selected_sentence.indexOf(stn) !== -1;  })
 
               if(filter.length > 0)
               {
                 count++;
 
-                var tkn   = this.data.tokens[ dec_order[j] ];
-                var target_i = aux_search.indexOf(tkn);
+                let tkn   = this.data.tokens[j];
+                let target_i = aux_search.indexOf(tkn);
   
                 if (target_i == -1)
                 {
                   token.push({
                     id: tkn, 
                     type: "token", 
-                    sentences: this.data.sentences[ dec_order[j] ],  
-                    position: this.data.position[ dec_order[j] ], 
-                    named_entity: this.data.named_entity[ dec_order[j]  ], 
-                    postag: this.data.postag[ dec_order[j] ]
+                    sentences: this.data.sentences[j],  
+                    label: this.data.label[j],
+                    position: this.data.position[j], 
+                    named_entity: this.data.named_entity[j], 
+                    postag: this.data.postag[j]
                   });
                   aux_search.push(tkn);
                   target_i = aux_search.length - 1;
                 }  
   
-                links.push({source: source_i, target: target_i, value: this.data.explanations[i][ dec_order[j] ]});
-                value.push(this.data.explanations[i][ dec_order[j] ]);
+                links.push({source: source_i, target: target_i, value: this.data.explanations[i][j]});
+                value.push(this.data.explanations[i][j]);
               }
             }
           }
@@ -687,7 +683,7 @@ class Explanation extends VisManager
     }
 
     //Sum all the link values of a class. Classes without links are initialized with Number.MAX_VALUE
-    var class_min_value = class_values.map(function(value, index)
+    let class_min_value = class_values.map(function(value, index)
       {  
         return  value.length == 0 ? Number.MAX_VALUE : value.reduce(function(sum, vl){ return sum + vl; });
       });
@@ -704,18 +700,18 @@ class Explanation extends VisManager
   }   
   show(data, clean=true)
   { 
-    var objs = this.extract_data(data.objs);
+    const objs = this.extract_data(data.objs);
 
     this.classes = objs.ids;
     this.data = objs.data
 
-    this.set_header("Class - " + this.classes.length + " samples - " + objs.name);
+    this.set_header("Class - " + this.classes.length + " predicted classes - " + objs.name);
     
     this.drawer.draw(this.process_data(), {}, LABEL_COLOR_PALETTE);
   }
   select_items(items, redraw = true)    
   {
-    var _this = this;
+    const _this = this;
     this.selected_classes = [];
     this.selected_sentence = [];
 
@@ -732,19 +728,81 @@ class Explanation extends VisManager
     
     this.drawer.draw(this.process_data(), {}, LABEL_COLOR_PALETTE);
   }  
+  get_info()
+  {
+    if(this.data !== null)
+    {
+      let html = "";
+
+      html += "<div class='table-responsive'>";
+      html += "<table class='table table-bordered' id='dataTable' width='100%' cellspacing='0'>";
+      html += "<caption class='table-caption'>Classification report</caption>";
+      html += "<thead><tr><th>class</th><th>precision</th><th>recall</th><th>f1</th></tr></thead>";
+      html += "<tbody>";
+
+      let precision = 0;
+      let recall = 0;
+      let f1_score = 0;
+
+      for(let i = 0; i < this.data.class_report.length; i++)
+      {
+
+        html += "<tr>";
+
+        html += "<td>" + this.classes[i] + "</td>";
+        html += "<td>" + this.data.class_report[i][0].toFixed(2) + "</td>"; //precision
+        html += "<td>" + this.data.class_report[i][1].toFixed(2) + "</td>"; //recall
+        html += "<td>" + this.data.class_report[i][2].toFixed(2) + "</td>"; //f1-score
+
+        html += "</tr>";
+
+        precision += this.data.class_report[i][0];
+        recall    += this.data.class_report[i][1];
+        f1_score  += this.data.class_report[i][2];
+      }
+
+      precision /= this.data.class_report.length; 
+      recall    /= this.data.class_report.length;
+      f1_score  /= this.data.class_report.length;
+
+      html += "</tbody>";
+
+      html += "<tfoot>";
+
+      html += "<tr>";
+      html += "<th>avg.</th>";
+      html += "<td>" + precision.toFixed(2) + "</td>"; //precision
+      html += "<td>" + recall.toFixed(2)    + "</td>"; //recall
+      html += "<td>" + f1_score.toFixed(2)  + "</td>"; //f1-score
+      html += "</tr>";
+
+      html += "<tr>";
+      html += "<th colspan='3'>acc.</th>";
+      html += "<td>" + this.data.class_report[0][3].toFixed(2) + "</td>";
+      html += "</tr>";      
+
+      html += "</tfoot>";
+      html += "</table>"
+      html += "</div>";
+
+      return html;
+    }
+    
+    return null;
+  }
 }
 
 class TextView extends VisManager
 {
-  constructor(div_list_id, header_id, chart_id)
+  constructor(div_list_id, header_id, chart_id, info_id)
   {
-    super(div_list_id, header_id, chart_id);
+    super(div_list_id, header_id, chart_id, info_id);
     this.filter_type = "text";
     this.objs = null;
     this.highlight = new HighlightText();    
     this.paginator = new PaginateText("text-previous", "text-next", "text-first", "text-last", "text-position", chart_id); 
 
-    var _this = this;
+    const _this = this;
 
     this.paginator.on("paginate", function(obj, text_tokens)
     {
@@ -755,10 +813,10 @@ class TextView extends VisManager
   }
   show(data, clean=true)
   { 
-    var _this = this;
+    const _this = this;
     this.objs  = this.extract_data(data.objs);    
-    this.label = this.objs.data.label[0] == null ? this.objs.data.topic : this.objs.data.label;
-    var row = document.createElement("div");
+    this.label = this.objs.data.label;
+    const row = document.createElement("div");
     row.className = "row overflow-auto";
 
     this.div_chart.innerHTML = "";
@@ -766,26 +824,26 @@ class TextView extends VisManager
 
     this.paginator.count_text = this.objs.data.text.length;
 
-    for (var idx = 0; idx < this.objs.data.text.length; idx++)
+    for (let idx = 0; idx < this.objs.data.text.length; idx++)
     {
-      var col = document.createElement("div");
+      let col = document.createElement("div");
       col.className = "col-xl-12 col-md-6 mb-4"
       col.dataset.id = this.objs.ids[idx];
       col.dataset.text = this.objs.data.text[idx];
 
-      var card = document.createElement("div");
+      let card = document.createElement("div");
       card.className = "card border-left-primary h-100 py-2";
-      card.style.cssText = "border-left-color: " + LABEL_COLOR_PALETTE(this.label[idx]) + " !important";
+      card.style.cssText = "border-left-color: " + LABEL_COLOR_PALETTE(this.objs.data.label[idx]) + " !important";
 
-      var body = document.createElement("div");
+      let body = document.createElement("div");
       body.className = "card-body";
 
-      var title = document.createElement("span");
+      let title = document.createElement("span");
       title.className = "font-weight-bold text-id";
-      title.innerHTML = this.objs.ids[idx] + " (" + this.label[idx] + "):";
-      title.data = {id: this.objs.ids[idx], label: this.label[idx]};
+      title.innerHTML = this.objs.ids[idx] + " (" + this.objs.data.label[idx] + "):";
+      title.data = {id: this.objs.ids[idx], label: this.objs.data.label[idx]};
 
-      var text = document.createElement("span");
+      let text = document.createElement("span");
       text.innerHTML = this.objs.data.text[idx];   
       
       body.appendChild(title)
@@ -804,11 +862,11 @@ class TextView extends VisManager
   clear_all(event)
   {
     event.preventDefault();
-    var _this = this;
+    const _this = this;
     document.querySelectorAll(".text-selected").forEach(function(element)
     {
       element.classList.remove("text-selected");   
-      var text_id = FILTER.set_view(_this.filter_type, []).get_view();
+      let text_id = FILTER.set_view(_this.filter_type, []).get_view();
 
       PROJECTION_VIEW.select_items(text_id);
       WORD_VIEW.select_items(text_id);
@@ -820,12 +878,12 @@ class TextView extends VisManager
   {
     event.preventDefault();
 
-    var text_id = FILTER.get_view(this.filter_type);
+    let text_id = FILTER.get_view(this.filter_type);
 
     if(event.target.classList.contains("text-selected"))
     {
       event.target.classList.remove("text-selected");   
-      var index = text_id.indexOf(event.target.data.id);
+      let index = text_id.indexOf(event.target.data.id);
       text_id.splice(index, 1);
     }  
     else 
@@ -843,15 +901,15 @@ class TextView extends VisManager
   }
   get_unique_token(text_tokens)
   {
-    var aux = [];
+    let aux = [];
 
-    for(var jdx = 0; jdx < text_tokens.length; jdx++)
+    for(let token of text_tokens)
     {
-      var found_index = -1;
+      let found_index = -1;
 
-      for(var kdx = 0; kdx < aux.length; kdx++)
+      for(let kdx = 0; kdx < aux.length; kdx++)
       {
-        if(aux[kdx][0] === text_tokens[jdx][0] && aux[kdx][1][0] === text_tokens[jdx][1][0] && aux[kdx][1][1] === text_tokens[jdx][1][1])
+        if(aux[kdx][0] === token[0] && aux[kdx][1][0] === token[1][0] && aux[kdx][1][1] === token[1][1])
         {
           found_index = kdx;
           break;
@@ -859,7 +917,7 @@ class TextView extends VisManager
       }
 
       if(found_index === -1)
-        aux.push(text_tokens[jdx]);
+        aux.push(token);
     }
 
     return aux;
@@ -877,22 +935,22 @@ class HighlightText
   execute(original_text, text_tokens, html_tag)
   { 
     //text_tokens: list of [token, [start pos, end pos]]
-    text_tokens.sort(function(a, b) { return a[1][0] - b[1][0]; });
-    var unique_token_id = text_tokens
-      .map(function(obj) { return obj === null ? obj : obj[0]; })
+    text_tokens.sort(function(a, b) { return b[1][0] - a[1][0]; });
+    const unique_token_id = text_tokens
+      .map(function(obj) { return obj === null ? obj.trim().toLowerCase() : obj[0].trim().toLowerCase(); })
       .filter(function(value, index, array){ return array.indexOf(value) === index; })
       .sort();    
-    var palette = d3.scaleOrdinal(d3.schemeSet3).domain(unique_token_id);
-    var new_text = original_text;
+    const palette = d3.scaleOrdinal(d3.schemeSet3).domain(unique_token_id);
+    let new_text = original_text;
 
-    for(var jdx = text_tokens.length - 1; jdx >= 0; jdx--)  
+    for(let tkn_pos of text_tokens)  
     {
-      var before = new_text.slice(0, text_tokens[jdx][1][0]);
-      var after  = new_text.slice(text_tokens[jdx][1][1]);
-      var token  = new_text.substring(text_tokens[jdx][1][0], text_tokens[jdx][1][1]);
+      let before = new_text.slice(0, tkn_pos[1][0]);
+      let after  = new_text.slice(tkn_pos[1][1]);
+      let token  = new_text.substring(tkn_pos[1][0], tkn_pos[1][1]);
 
-      new_text = before + "<span style='background-color:" + palette(text_tokens[jdx][0]) + "'>" + token + "</span>" + after;
-    }
+      new_text = before + "<span style='background-color:" + palette(tkn_pos[0].trim().toLowerCase()) + "'>" + token + "</span>" + after;
+    }    
 
     html_tag.innerHTML = new_text;    
   }
@@ -944,7 +1002,7 @@ class PaginateText
   }   
   set_event()
   {
-    var _this = this;
+    const _this = this;
 
     this.first_page.addEventListener("click", function(event)
     {
@@ -973,7 +1031,7 @@ class PaginateText
     this.last_page.addEventListener("click", function(event)
     {
       event.preventDefault();
-      var aux_idx = Math.floor(_this.get_count_text() / _this.inc) * _this.inc;
+      const aux_idx = Math.floor(_this.get_count_text() / _this.inc) * _this.inc;
       _this.first_idx = aux_idx == _this.get_count_text() ? _this.get_count_text() - _this.inc : aux_idx;
 
       _this.manage_control();
@@ -991,10 +1049,10 @@ class PaginateText
     let ids = Object.keys(this.selected_text);
     this.count_selected_text = 0;
 
-    for(var idx = 0; idx < cols.length; idx++)
+    for(let idx = 0; idx < cols.length; idx++)
     {
       this.call_back.paginate(cols[idx], []);
-      var hidden = false;
+      let hidden = false;
 
       //Selection from: scatterplot and heatmap
       if(this.selected_text instanceof Array)
@@ -1008,7 +1066,7 @@ class PaginateText
 
         if(!hidden)
         {
-          var text_tokens = this.selected_text[cols[idx].dataset.id];
+          let text_tokens = this.selected_text[cols[idx].dataset.id];
           this.call_back.paginate(cols[idx], text_tokens);
         }
       }

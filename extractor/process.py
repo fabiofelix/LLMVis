@@ -1,6 +1,6 @@
 import numpy as np, torch, gc, pdb
 
-from nlp import filter_token
+from nlp import filter_stop_words
 
 ##https://huggingface.co/sentence-transformers/bert-base-nli-mean-tokens
 ##https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2
@@ -29,41 +29,45 @@ def tag_indexOf(token_pos, tags):
 
   return -1
 
-def average_feature_axis(text_token_feat, token_desc):
-  print("|- Averaging feature axis")
+def aggregate_feature_axis(text_token_feat, token_desc, aggregation = "norm"):
+  print("|- Aggregate feature axis with", aggregation)
   idx2tkn = {}
   tkn2idx = {}
-  aux = []
 
-  for row in token_desc:
-    aux.extend(row)
-
-  filtered_desc = filter_token(aux)
+  aux = [desc for row in token_desc for desc in row]
+  filtered_desc = filter_stop_words(aux)
   
   for idx, tkn_desc in enumerate(filtered_desc):
     idx2tkn[idx] = tkn_desc
     tkn2idx[tkn_desc] = idx
 
-  text_token = {key: None for key in text_token_feat.keys()  }
+  text_token = {key: None for key in text_token_feat }
 
   gc.collect()
 
   for key in text_token_feat:
     ##NOTE: never ever code this way
     ##new_tensor =  [ [ [0]  * key_shape[-1]  ] * len(idx2tkn) ] * key_shape[0]
-    new_tensor = [ [0] * len(idx2tkn) for _ in range(len(text_token_feat[key])) ]
+
+    num_token = len(idx2tkn)
+    new_tensor = [ [0] * num_token for _ in range(len(text_token_feat[key])) ]
+
+    # pdb.set_trace()
 
     for txt_id, (tkn_feat, tkn_desc) in enumerate(zip(text_token_feat[key], token_desc)):
+      tkn_desc = np.array([ desc.strip() for desc in tkn_desc ])
       filtered = [ dsc for dsc in np.unique(tkn_desc) if dsc in tkn2idx ]
 
       ## One token can appear more than one time in the same text     
       ## Calculate the mean of these appearances
       ## And calculate the mean of the token features
-      tkn_desc = np.array(tkn_desc)
-
       for desc in filtered:
         desc_idx = np.where(desc == tkn_desc)[0]
-        new_tensor[txt_id][ tkn2idx[desc] ] = tkn_feat[desc_idx].mean(axis = 0).mean()
+
+        if aggregation == "norm":
+          new_tensor[txt_id][ tkn2idx[desc] ] = np.linalg.norm(tkn_feat[desc_idx], axis = 1).mean()
+        else:  
+          new_tensor[txt_id][ tkn2idx[desc] ] = tkn_feat[desc_idx].mean(axis = 0).mean()
 
     gc.collect()
     text_token[key] = new_tensor

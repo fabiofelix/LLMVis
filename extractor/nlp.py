@@ -1,4 +1,4 @@
-import os, numpy as np, string, re, tqdm, nltk, pdb, utils, json
+import os, numpy as np, string, re, tqdm, nltk, pdb, utils, json, calendar
 
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
@@ -20,6 +20,8 @@ nltk.download('tagsets_json', download_dir = os.path.join(utils.main_cache_path,
 
 def load_stop_words():
   stop_words = stopwords.words('english')
+  stop_words.extend([ name.lower() for name in list(calendar.month_name)[1:] ])
+  stop_words.extend([ name.lower() for name in list(calendar.day_name) ])
 
   if os.path.isfile("stopwords_news.spw"):
     file = open("stopwords_news.spw", "r")
@@ -39,29 +41,32 @@ def is_ordinal(value):
 
   return re.match(number_pattern, value.lower())  
 
+def is_decade(value):
+  number_pattern = r"(\d{2}|\d{4})s"
+
+  return re.match(number_pattern, value.lower())  
+
 def has_letter(value):
   letter_patern = '[a-zA-Z]'
 
   return re.search(letter_patern, value) is not None
 
-def filter_token(token_desc):
-  # pdb.set_trace()
+def filter_stop_words(token_desc):
   filtered_token = []  
   stop_words = load_stop_words()
 
   for desc in token_desc:
-    # pdb.set_trace()
     desc = '' if desc is None else desc.strip()
     desc_stop = re.sub(r'[^\w\s]', '', desc)
     
     if (desc != '' and
         not is_number(desc) and
         not is_ordinal(desc) and
+        not is_decade(desc) and
         has_letter(desc) and
         desc_stop.lower() not in stop_words):
       filtered_token.append(desc)
 
-  # pdb.set_trace()
   filtered_token.sort()
   return np.unique(filtered_token)
 
@@ -96,17 +101,19 @@ def nltk_extract_entity(text):
 
         first_idx += len(leaf[0])
     else:
-      token_idx = text.find(subtree[0])
-      text      = text[token_idx + len(subtree[0]):] 
+      token_aux = '"' if subtree[0] == '``' else subtree[0]
+
+      token_idx = text.find(token_aux)
+      text      = text[token_idx + len(token_aux):] 
 
       first_idx += token_idx
 
       desc = tag_desc[subtree[1]][0] + " (" + subtree[1] + ")" if subtree[1] in tag_desc else subtree[1]
-      tags.append( (subtree[0], desc, (first_idx, first_idx + len(subtree[0]))) )
+      tags.append( (token_aux, desc, (first_idx, first_idx + len(token_aux))) )
       
       entity_list.append(None)
 
-      first_idx += len(subtree[0])
+      first_idx += len(token_aux)
 
   return tags, entity_list
 
