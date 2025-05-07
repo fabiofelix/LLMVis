@@ -107,7 +107,7 @@ class ScatterPlot extends MySVG
     super(wrapper, tooltip);
     this.legend = null;
     this.circle_size = 3;
-    this.selected_class = [];
+    this.current_selected_class = [];
     this.current_lasso_selection = [];
   }
   config_legend() 
@@ -189,17 +189,17 @@ class ScatterPlot extends MySVG
       .on("mouseout", function (event, target) { _this.tooltip.hide(); })
       .on("click", function (event, target) 
       {
-        _this.selected_class = [];
+        _this.current_selected_class = [];
         let text_ids = [];
         const selected = d3.select(this).classed("scatter-legend-selected");
  
         d3.select(this).classed("scatter-legend-selected", !selected);
-        _this.legend.selectAll(".scatter-legend-selected").each(function(class_) { _this.selected_class.push(class_);  }) 
+        _this.legend.selectAll(".scatter-legend-selected").each(function(class_) { _this.current_selected_class.push(class_);  }) 
 
-        if(_this.selected_class.length > 0)
+        if(_this.current_selected_class.length > 0)
           _this.svg.selectAll(".scatter-circle").each(function(obj)
           {
-            if(_this.selected_class.indexOf(obj.label) !== -1)
+            if(_this.current_selected_class.indexOf(obj.label) !== -1)
               text_ids.push(obj.sentence_id);
           });
 
@@ -211,7 +211,7 @@ class ScatterPlot extends MySVG
   {
     let class_name = "scatter-legend";
 
-    if(this.selected_class.length > 0 && this.selected_class.indexOf(obj) !== -1)
+    if(this.current_selected_class.length > 0 && this.current_selected_class.indexOf(obj) !== -1)
       class_name += " scatter-legend-selected";
 
     return class_name;
@@ -221,7 +221,7 @@ class ScatterPlot extends MySVG
     let class_name = "scatter-circle";
 
     if ((this.selected_items.length > 0 && this.selected_items.indexOf(obj.sentence_id) === -1) ||
-        (this.selected_class.length > 0 && this.selected_class.indexOf(obj.label) === -1))
+        (this.current_selected_class.length > 0 && this.current_selected_class.indexOf(obj.label) === -1))
       class_name += " scatter-unselected";
 
     return class_name;    
@@ -233,8 +233,8 @@ class ScatterPlot extends MySVG
 
     if(redraw)
     {
-      this.selected_class = [];
-      this.legend.selectAll(".scatter-legend-selected").each(function(class_) { _this.selected_class.push(class_);  })
+      this.current_selected_class = [];
+      this.legend.selectAll(".scatter-legend-selected").each(function(class_) { _this.current_selected_class.push(class_);  })
 
       this.svg.select("g").selectAll("circle")
         .attr("class", function (obj) { return _this.get_circle_class(obj); });    
@@ -248,7 +248,7 @@ class WordCloud extends MySVG
   {
     super(wrapper, tooltip);
     this.token_info = new TokenInfo();
-    this.selected_items = [];
+    this.current_selected_word = null;
   }  
   draw(data, data_summary, palette) 
   {
@@ -275,7 +275,7 @@ class WordCloud extends MySVG
         .style("font-size", function(d) { return d.size + "px"; })
         .style("font-family", function(d) { return d.font; })
         .style("fill", function(d) { return color_scale(d.frequency); })
-        .attr("class", "word")
+        .attr("class", function (obj) { return _this.get_word_class(obj); })
         .attr("text-anchor", "middle")
         .attr("transform", function(d) { return "translate(" + [d.x, d.y] + ")rotate(" + d.rotate + ")"; })
         .text(function(d) { return d.id; })
@@ -285,12 +285,14 @@ class WordCloud extends MySVG
           let sentences = [];
           let position = [];
           group.selectAll("text").classed("word-selected", false);
+          _this.current_selected_word = null;
 
           if(!selected)  
           {
             d3.select(event.target).classed("word-selected", true);
             sentences = target.sentences;
             position = target.position;
+            _this.current_selected_word = target.id;
           }  
 
           _this.call_back.end(sentences, position);
@@ -304,17 +306,28 @@ class WordCloud extends MySVG
     });
     layout.start();    
   }
+  get_word_class(obj)
+  {
+    let class_name = "word";
+
+    if (this.current_selected_word === obj.id)
+      class_name += " word-selected";
+
+    return class_name;    
+  }  
   clear()
   {
+    const _this = this;
     this.svg.selectAll(".word-selected").each(function(text, i, array) 
     { 
-      d3.select(array[i]).classed("word-selected", false);  
+      d3.select(array[i]).classed("word-selected", false);
+      _this.current_selected_word = null;
     });
     this.call_back.end([], []); 
   }
   select(data, redraw = true) 
   {
-    this.selected_items = data;
+
   }    
 }
 
@@ -325,9 +338,9 @@ class SankyDiagram extends MySVG
     super(wrapper, tooltip);
     this.group = null;
     this.token_info = new TokenInfo();
-    this.selected_items = [];
     this.selected_classes = [];
-    this.clicked_class = [];
+    this.current_selected_class = [];
+    this.current_selected_token = null;
     this._total_links = 5;
     this.token_node_color = "#91b691";
     this.margin = {top: 5, bottom: 5, left: 5, right: 5, text_offset: 6};
@@ -386,7 +399,8 @@ class SankyDiagram extends MySVG
       {
         let sentence_ids = [];
         let position = [];
-        _this.clicked_class = [];
+        _this.current_selected_class = [];
+        _this.current_selected_token = null;
         
         const selected = d3.select(event.target).classed("sunkey-node-selected");
         _this.group.selectAll("rect").classed("sunkey-node-selected", false);
@@ -398,6 +412,8 @@ class SankyDiagram extends MySVG
 
           if(rect_obj_info.type === "token")
           {
+            _this.current_selected_token = rect_obj_info.id;
+
             _this.group.selectAll("path").each(function(path, i, array)
             {
               d3.select(array[i]).classed("sunkey-link-selected", path.target.id === rect_obj_info.id);
@@ -417,7 +433,7 @@ class SankyDiagram extends MySVG
           }
           else
           {
-            _this.clicked_class = [rect_obj_info.id];
+            _this.current_selected_class = [rect_obj_info.id];
 
             _this.group.selectAll("path").each(function(path, i, array)
             {
@@ -498,22 +514,25 @@ class SankyDiagram extends MySVG
   {
     let class_name = "";
 
-    if(obj.type === "class" && 
+    if((obj.type === "class" && 
        ((this.selected_classes.length > 0 && this.selected_classes.indexOf(obj.id) !== -1) ||
-        (this.clicked_class.length > 0 && this.clicked_class.indexOf(obj.id) !== -1)))
+        (this.current_selected_class.length > 0 && this.current_selected_class.indexOf(obj.id) !== -1))) ||
+       (obj.type == "token" &&
+        this.current_selected_token === obj.id)) 
       class_name = "sunkey-node-selected";
 
     return class_name;
   }
   get_link_class(obj)
   {
-    let class_ = "sunkey-link";
+    let class_name = "sunkey-link";
 
     if((this.selected_classes.length > 0 && this.selected_classes.indexOf(obj.source.id) !== -1) ||
-       (this.clicked_class.length > 0 && this.clicked_class.indexOf(obj.source.id) !== -1))
-      class_ += " sunkey-link sunkey-link-selected"; 
+       (this.current_selected_class.length > 0 && this.current_selected_class.indexOf(obj.source.id) !== -1) ||
+       (this.current_selected_token === obj.target.id))
+      class_name += " sunkey-link sunkey-link-selected"; 
 
-    return class_;
+    return class_name;
   }
 }
 

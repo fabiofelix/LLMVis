@@ -271,7 +271,8 @@
 {
   cursor: pointer; 
   font-weight: bold;
-  stroke: #858796;
+  /* stroke: #858796; */
+  stroke: #000;
   stroke-width:1px;
 }
 

@@ -33,7 +33,7 @@
 
 4. Available datasets
 
-  - [PaperAbstract](https://www.kaggle.com/datasets/blessondensil294/topic-modeling-for-research-articles?select=test.csv) with paper abstracts
+  - [PaperAbstract](https://www.kaggle.com/datasets/blessondensil294/topic-modeling-for-research-articles) with paper abstracts
   - [TinyStories-V2](https://huggingface.co/datasets/roneneldan/TinyStories) (generated with GPT-4) with small children stories
   - [BBCNews](http://mlg.ucd.ie/datasets/bbc.html)
 

@@ -475,17 +475,26 @@ class WordView extends VisManager
 
     EXPLANATION_VIEW.select_items(text_label);
     TEXT_VIEW.select_items(Object.keys(text_ids).length == 0 ? data_filtered : text_ids);
-  }  
+  }
   zipf_law(words)
   {
     const samples = 50;
-    const min_freq = 0.05;
-    const max_freq = 0.95;
-    const max_norm_factor = words[words.length - 1].frequency;
     let filtered = words;
+    let min_freq = words[0].frequency;
+    let max_freq = words[words.length - 1].frequency;      
     
-    if(words[0].frequency !== words[words.length - 1].frequency)
-      filtered = words.filter(function(item) { return (item.frequency / max_norm_factor) >= min_freq && (item.frequency / max_norm_factor) <= max_freq; });
+    if(min_freq !== max_freq)
+    {
+      //Remove lower and upper frequencies
+      filtered = words.filter(function(item) { return item.frequency > min_freq && item.frequency < max_freq; });
+      
+      min_freq = 0.05;
+      max_freq = 0.95;
+      let max_norm_factor = filtered[filtered.length - 1].frequency;
+
+      //Filter out normalized frequencies out [min_freq, max_freq] interval
+      filtered = filtered.filter(function(item) { return (item.frequency / max_norm_factor) > min_freq && (item.frequency / max_norm_factor) < max_freq; });
+    }  
 
     return filtered.length > samples ? filtered.slice(-samples) : filtered;
   }    
@@ -549,7 +558,7 @@ class WordView extends VisManager
         .sort(function(a, b) { return a.frequency - b.frequency; });
     }
 
-    filtered = this.zipf_law(filtered);
+    filtered = filtered.length === 0 ? filtered : this.zipf_law(filtered);
     this.set_header("Token - " + filtered.length + " samples more frequent");
 
     if(filtered.length === 0)
@@ -999,44 +1008,32 @@ class PaginateText
   get_count_text()
   {
     return this.count_selected_text > 0 ? this.count_selected_text : this.count_text;
+  }
+  bind_page_click_event(element, call_back)
+  {
+    const _this = this;
+
+    element.addEventListener("click", function(event)
+    {
+      event.preventDefault();
+      call_back();
+
+      _this.manage_control();
+      _this.paginate_text();
+    });     
   }   
   set_event()
   {
     const _this = this;
 
-    this.first_page.addEventListener("click", function(event)
-    {
-      event.preventDefault();
-      _this.first_idx = 0;
-
-      _this.manage_control();
-      _this.paginate_text();
-    });    
-    this.previous_page.addEventListener("click", function(event)
-    {
-      event.preventDefault();
-      _this.first_idx -= _this.inc;
-
-      _this.manage_control();
-      _this.paginate_text();
-    });
-    this.next_page.addEventListener("click", function(event)
-    {
-      event.preventDefault();
-      _this.first_idx += _this.inc;
-
-      _this.manage_control();
-      _this.paginate_text();
-    });
-    this.last_page.addEventListener("click", function(event)
-    {
-      event.preventDefault();
+    this.bind_page_click_event(this.first_page, function(){  _this.first_idx = 0; });
+    this.bind_page_click_event(this.previous_page, function(){  _this.first_idx -= _this.inc; });
+    this.bind_page_click_event(this.next_page, function(){  _this.first_idx += _this.inc; });
+    this.bind_page_click_event(this.last_page, function()
+    { 
       const aux_idx = Math.floor(_this.get_count_text() / _this.inc) * _this.inc;
       _this.first_idx = aux_idx == _this.get_count_text() ? _this.get_count_text() - _this.inc : aux_idx;
-
-      _this.manage_control();
-      _this.paginate_text();
-    });     
+    });
   }
   set_selected_text(items)
   {
@@ -1088,26 +1085,14 @@ class PaginateText
   {
     this.page_position.innerHTML = (this.first_idx + 1) + "-" + Math.min(this.first_idx + this.inc, this.get_count_text());
 
-    if(this.first_idx == 0)
+    this.toggle_controls([this.first_page, this.previous_page], this.first_idx === 0);
+    this.toggle_controls([this.next_page, this.last_page], this.first_idx + this.inc >= this.get_count_text());
+  }
+  toggle_controls(controls, disabled) 
+  {
+    controls.forEach(function(el)
     {
-      this.first_page.classList.add("disabled");
-      this.previous_page.classList.add("disabled");
-    }
-    else
-    {
-      this.first_page.classList.remove("disabled");
-      this.previous_page.classList.remove("disabled");
-    }     
-
-    if(this.first_idx + this.inc >= this.get_count_text())
-    {  
-      this.next_page.classList.add("disabled");
-      this.last_page.classList.add("disabled");
-    }     
-    else
-    {
-      this.next_page.classList.remove("disabled");      
-      this.last_page.classList.remove("disabled");      
-    }
+      el.classList.toggle("disabled", disabled);
+    });
   }         
 }

@@ -217,7 +217,6 @@ def run(args, parser):
   ##   len(idx2tkn)             (filtered_tokens)
   ## Note: 'tokens' is the TOTAL number of tokens
   ##        idx2tkn = { idx: token_desc  }
-  # text_token_feat, idx2tkn, tkn2idx = expand_token_axis(text_token_feat, token_ids, token_desc, model)
   text_token, idx2tkn = aggregate_feature_axis(text_token_feat, token_desc)
 
   labels = text_data.topic.to_numpy() if text_data.iloc[0].label is None else text_data.label.to_numpy()
@@ -233,9 +232,6 @@ def run(args, parser):
   save_projection(args, text_feat, text_data.name.to_numpy(), labels, pattern_file_data_model_block)
   save_explanation(args, text_token, tkn_ids, stn_ids, labels, pattern_file_data_model_block, row_ids=text_data.name.to_numpy())
 
-##  save_clusters(args, token_feat, tkn_ids, stn_ids, idx2tkn, pattern_file_data_model_block)
-##  save_distances(args, text_feat, text_data.name.to_numpy(), labels, pattern_file_data_model_block)
-  
   print("|- {} samples - {} tokens".format(text_data.shape[0], len(tkn_ids)))
 
 def main(*args):

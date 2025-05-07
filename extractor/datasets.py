@@ -151,7 +151,7 @@ class BBCNews(TextDataset):
   def __str__(self):
     return "BBC-News"
   
-  def get_data(self, n_samples = 100, max_text_length = 2000):      
+  def get_data(self, n_samples = 100, max_text_length = 5000):
     folders = glob.glob(os.path.join(self.data_path, "*"))
     filename = []
     text = []

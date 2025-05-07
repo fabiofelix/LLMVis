@@ -8,36 +8,6 @@ from sklearn import svm
 from sklearn.preprocessing import LabelEncoder, StandardScaler, MinMaxScaler
 from sklearn.metrics import classification_report
 
-class PreprocessData:
-  def __init__(self, data, labels, feature_freq):
-    self.__data = np.array(data)
-    self.__labels = np.array(labels)
-    self.__feature_freq = np.array(feature_freq)
-
-  def __split_report(self, y_train, y_test):
-    print("|-- Train/test split")
-    print("|-- {:<10s}{:<10s}{:<10s}{:<10s}".format("class", "#train", "#test", "total"))
-
-    train_labels, train_count = np.unique(y_train, return_counts = True)
-    test_labels, test_count = np.unique(y_test, return_counts = True)
-    total_train, total_test = 0, 0
-
-    for lb in np.unique(self.__labels):
-      total     = np.where(self.__labels == lb)[0]
-      train_idx = np.where(train_labels == lb)[0]
-      test_idx  = np.where(test_labels == lb)[0]
-
-      count_tr = 0 if train_idx.shape[0] == 0 else train_count[train_idx[0]]  
-      count_ts = 0 if test_idx.shape[0] == 0 else test_count[test_idx[0]]
-
-      total_train += count_tr
-      total_test += count_ts
-
-      print("|-- {:<10d}{:<10d}{:<10d}{:<10d}".format(lb, count_tr, count_ts, total.shape[0]))
-
-    print("|-- {:<10s}{:<10d}{:<10d}{:<10d}".format("total", total_train, total_test, total_train + total_test))    
-
-
 class Explainer:
   ## As the tokens are represented by their feature-vector norm, a zero value implies in no presence of
   ## a token in a text (sentence). If StandardScaler is used, zero values would be changed, creating a false environment for the explainer
@@ -116,7 +86,7 @@ class Explainer:
     labels = self.label_encoder.fit_transform(labels)
 
     X_train, X_test, y_train, y_test =  self.train_test_split(data, labels, test_samples_per_class=test_samples_per_class)
-
+    
     X_train = self.scaler.fit_transform(X_train)
     X_test  = self.scaler.transform(X_test)
 
@@ -161,9 +131,10 @@ class MyShap(Explainer):
     label_prob  = self.classifier.predict_proba(X_test)
     label_pred  = np.argmax(label_prob, axis = 1)
 
-    shap_values = self.explainer(X_test, silent=True)
+    print("|-- SHAP explanation")
+    shap_values = self.explainer(X_test)
 
-    for label, shap_v, lb_pred, lb_prob in tqdm.tqdm(zip(y_test, shap_values.values, label_pred, label_prob), desc = "|-- SHAP explanation" , total = X_test.shape[0], unit= "sample"):
+    for label, shap_v, lb_pred, lb_prob in zip(y_test, shap_values.values, label_pred, label_prob):  
       self.exp_space["original_label"].append(label_names[label])
       self.exp_space["predicted_label"].append(label_names[lb_pred])
       self.exp_space["predicted_prob"].append(lb_prob[lb_pred])
