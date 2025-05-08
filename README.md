@@ -1,4 +1,6 @@
 
+## **Install**
+
 1. Create a python virtual environment with pip, conda, etc.
 2. Install the dependences for extraction and visualization
 
@@ -6,13 +8,15 @@
   pip install -r requirements.txt
 ```
 
-  - If one wants to run only the Visualization system, use
+  - If one wants to run only the Visualization tool
 
 ```
   pip install -r requirements_vis.txt
 ```
 
-3. Run the following code to extract the features
+## **Extract information**
+
+1. Run the following code to extract the features
 
 ``` 
   python extract_features.py 
@@ -31,21 +35,29 @@
   -b  batch size (default = 100)
 ``` 
 
-4. Available datasets
+2. Available models
+
+  - [BERT](https://huggingface.co/google-bert/bert-base-uncased) base uncased
+  - [Llama](https://huggingface.co/meta-llama/Llama-3.1-8B) version 3.1 with 8 billion parameters
+  - [Gemma](https://huggingface.co/google/gemma-2-9b) version 2 with 9 billion parameters
+
+3. Available datasets
 
   - [PaperAbstract](https://www.kaggle.com/datasets/blessondensil294/topic-modeling-for-research-articles) with paper abstracts
   - [TinyStories-V2](https://huggingface.co/datasets/roneneldan/TinyStories) (generated with GPT-4) with small children stories
   - [BBCNews](http://mlg.ucd.ie/datasets/bbc.html)
 
-5. After extraction, copy all the .npz files generated to the *data folder*
+## **Visualization**
 
-6. Run the following command to run *server.py* code inside the right environment and open the *Running on* link on the browser
+1. After extraction, copy all the generated .npz files to the *data folder*
+
+2. Run the following command to run *server.py* code inside the right environment and open the *Running on* link on the browser
 
 ```
   flask --app server run --debug
 ```
 
-7. Vis tool interaction:
+3. Vis tool interaction:
   * Scatter plot: color palette maps classes
     - Click on the plot area and drag to select a region with samples
     - Click on the plot area remove selection
@@ -53,7 +65,8 @@
   * Word cloud: bigger and darker words are more frequent than smaller and lighter ones
     - Click on one token to (un)select  
     - Mose over one token to show more information
-  * Sankey diagram: left rectangles represent the same Scatter plot classes and right ones the more important tokens
+    - Use the top-right menu to clear selection
+  * Sankey diagram: left rectangles represent predicted classes and right ones the more important tokens for each prediction
     - Click on one class/token to (un)select
     - Mose over one link to show more information
   * Texts:
@@ -61,14 +74,17 @@
     - Use the top-right menu to clear all text selections
     - Left-most bar color maps classes
 
-8. Code structure
-  * Feature extractor:
-    - extractor/extract_features.py
-    - extractor/models.py: create_model and MyModelFamily
-    - extractor/datasets.py: create_dataset and TextDataset
-  * Vis tool:
-    - server.py: load_config, filter
-    - templates/index.html
-    - static/js/client.js: document.addEventListener("DOMContentLoaded", function(){ .. })
-    - static/js/svg.js: MySVG
-    - static/css/vis.css
+## **Code basic structure**
+
+1. Feature extractor:
+  - extractor/extract_features.py
+  - extractor/models.py: create_model and MyModelFamily
+  - extractor/datasets.py: create_dataset and TextDataset
+  - extractor/xai.py: Explainer.run
+  
+2. Vis tool:
+  - server.py: load_config, filter
+  - templates/index.html
+  - static/js/client.js: document.addEventListener("DOMContentLoaded", function(){ .. })
+  - static/js/svg.js: MySVG
+  - static/css/vis.css

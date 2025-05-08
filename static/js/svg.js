@@ -15,7 +15,7 @@ class MySVG
       return this.call_back;
     if (arguments.length === 1)
       return this.call_back[type];
-    if (Object.keys(this.call_back).indexOf(type) > -1)
+    if (Object.keys(this.call_back).includes(type))
       this.call_back[type] = call_back;
 
     return this;
@@ -71,7 +71,7 @@ class TokenInfo
     {
       let search_key = data.postag[i][0] + "," + data.postag[i][1] + "," + (data.named_entity[i] === null ? "" : data.named_entity[i]);
     
-      if( aux_search.indexOf(search_key) === -1 )
+      if(!aux_search.includes(search_key))
       {  
         aux_search.push(search_key);
         
@@ -141,7 +141,7 @@ class ScatterPlot extends MySVG
       .attr("class", function (obj) { return _this.get_circle_class(obj); })    
       .style("fill", function (d) 
       { 
-        if(label_list.indexOf(d.label) == -1)
+        if(!label_list.includes(d.label))
           label_list.push(d.label); 
         
         return palette(d.label); 
@@ -199,7 +199,7 @@ class ScatterPlot extends MySVG
         if(_this.current_selected_class.length > 0)
           _this.svg.selectAll(".scatter-circle").each(function(obj)
           {
-            if(_this.current_selected_class.indexOf(obj.label) !== -1)
+            if(_this.current_selected_class.includes(obj.label))
               text_ids.push(obj.sentence_id);
           });
 
@@ -211,7 +211,7 @@ class ScatterPlot extends MySVG
   {
     let class_name = "scatter-legend";
 
-    if(this.current_selected_class.length > 0 && this.current_selected_class.indexOf(obj) !== -1)
+    if(this.current_selected_class.length > 0 && this.current_selected_class.includes(obj))
       class_name += " scatter-legend-selected";
 
     return class_name;
@@ -220,8 +220,8 @@ class ScatterPlot extends MySVG
   {
     let class_name = "scatter-circle";
 
-    if ((this.selected_items.length > 0 && this.selected_items.indexOf(obj.sentence_id) === -1) ||
-        (this.current_selected_class.length > 0 && this.current_selected_class.indexOf(obj.label) === -1))
+    if ((this.selected_items.length > 0 && !this.selected_items.includes(obj.sentence_id)) ||
+        (this.current_selected_class.length > 0 && !this.current_selected_class.includes(obj.label)))
       class_name += " scatter-unselected";
 
     return class_name;    
@@ -491,9 +491,6 @@ class SankyDiagram extends MySVG
 
     this.update_link(graph.links);
     this.update_node(sankey, graph.nodes, palette);
-
-    if(token_selected)
-      this.call_back.end([], []);
   }
   count(selected_items, obj)
   {
@@ -501,13 +498,13 @@ class SankyDiagram extends MySVG
       return obj.sourceLinks.filter(function(item)
       {
         return item.target.sentences
-        .filter(function (sentence_id, k) { return selected_items.indexOf(sentence_id) !== -1; })
+        .filter(function (sentence_id, k) { return selected_items.includes(sentence_id); })
         .length > 0;        
       })
       .length;
     else
     return obj.sentences
-      .filter(function (sentence_id, k) { return selected_items.indexOf(sentence_id) !== -1; })
+      .filter(function (sentence_id, k) { return selected_items.includes(sentence_id); })
       .length > 0;  
   }
   get_node_class(obj)
@@ -515,8 +512,8 @@ class SankyDiagram extends MySVG
     let class_name = "";
 
     if((obj.type === "class" && 
-       ((this.selected_classes.length > 0 && this.selected_classes.indexOf(obj.id) !== -1) ||
-        (this.current_selected_class.length > 0 && this.current_selected_class.indexOf(obj.id) !== -1))) ||
+       ((this.selected_classes.length > 0 && this.selected_classes.includes(obj.id)) ||
+        (this.current_selected_class.length > 0 && this.current_selected_class.includes(obj.id)))) ||
        (obj.type == "token" &&
         this.current_selected_token === obj.id)) 
       class_name = "sunkey-node-selected";
@@ -527,8 +524,8 @@ class SankyDiagram extends MySVG
   {
     let class_name = "sunkey-link";
 
-    if((this.selected_classes.length > 0 && this.selected_classes.indexOf(obj.source.id) !== -1) ||
-       (this.current_selected_class.length > 0 && this.current_selected_class.indexOf(obj.source.id) !== -1) ||
+    if((this.selected_classes.length > 0 && this.selected_classes.includes(obj.source.id)) ||
+       (this.current_selected_class.length > 0 && this.current_selected_class.includes(obj.source.id)) ||
        (this.current_selected_token === obj.target.id))
       class_name += " sunkey-link sunkey-link-selected"; 
 

@@ -115,10 +115,10 @@ def process_explanation(config, obj_path, dataset, model, obj_type, opt, opt_typ
       "type": "explanation",
       "name": opt_type,
       "source": "class",
-      "ids": data["class_ids"].tolist(),
+      "ids": data["class_ids"].tolist(),  #predicted classes
       "data": {
         "sentences": data["text_ids"].tolist(),
-        "label": [],
+        "label": [],   #ground-truth
         "tokens": data["token_ids"].tolist(),
         "explanations": data["explanation"].tolist(),
         "class_report": data["class_report"].tolist(),
@@ -191,7 +191,7 @@ def filter():
     for tkn_id in exp["data"]["tokens"]:
       idx = tkn["ids"].index(tkn_id)
 
-      exp["data"]["label"].append(tkn["data"]["label"][idx])
+      exp["data"]["label"].append(tkn["data"]["label"][idx]) #ground-truth
       exp["data"]["position"].append(tkn["data"]["position"][idx])
       exp["data"]["postag"].append(tkn["data"]["postag"][idx])
       exp["data"]["named_entity"].append(tkn["data"]["named_entity"][idx])

@@ -139,7 +139,7 @@ class FilterManager
       return this.call_back;
     if (arguments.length === 1)
       return this.call_back[type];
-    if (Object.keys(this.call_back).indexOf(type) > -1)
+    if (Object.keys(this.call_back).includes(type))
       this.call_back[type].push(call_back);
 
     return this;
@@ -229,7 +229,7 @@ class FilterManager
       if(aux_ids.length == 0)
         aux_ids = current_filter;
       else if(current_filter.length > 0)
-        aux_ids = aux_ids.filter(function(value) { return current_filter.indexOf(value) !== -1; });
+        aux_ids = aux_ids.filter(function(value) { return current_filter.includes(value); });
     }
 
     return aux_ids;    
@@ -397,7 +397,7 @@ class Projection extends VisManager
     const text_ids = FILTER.set_view(second_filter_type, data).get_view();
 
     WORD_VIEW.select_items(text_ids);
-    const text_label = this.sentences_.filter(function(stn){ return text_ids.indexOf(stn.sentence_id) > -1 });
+    const text_label = this.sentences_.filter(function(stn){ return text_ids.includes(stn.sentence_id); });
     EXPLANATION_VIEW.select_items(text_label);
     TEXT_VIEW.select_items(text_ids);
 
@@ -422,7 +422,7 @@ class Projection extends VisManager
 
       let label = objs.label[idx];
 
-      if(unique_label.indexOf(label) == -1)
+      if(!unique_label.includes(label))
         unique_label.push(label);
 
       _this.sentences_.push({sentence_id: objs.ids[idx], label: label});
@@ -444,10 +444,17 @@ class WordView extends VisManager
     this.source_type = "token";    
     this.drawer = new WordCloud(chart_id, TOOLTIP);
     this.words = null;
+    this.max_samples = 50;
     const _this = this;
     this.drawer.on("end", function(data, position){ _this.drawer_callback(data, position); });
-
-    document.getElementById("clear_word_selection").addEventListener("click", function(event){ _this.drawer.clear() }); 
+    
+    document.getElementById("clear_word_selection").addEventListener("click", function(event){ _this.clear_all(event) }); 
+  }
+  clear_all(event)
+  {
+    event.preventDefault();
+    this.drawer.clear();
+    this.set_header("Token - " + this.max_samples + " samples more frequent");    
   }  
   drawer_callback(data, position)
   {
@@ -456,9 +463,9 @@ class WordView extends VisManager
 
     for(let i = 0; i < data.length; i++)
     {
-      if(data_filtered.indexOf(data[i]) !== -1 && position[i] !== null)
+      if(data_filtered.includes(data[i]) && position[i] !== null)
       {
-        if(Object.keys(text_ids).indexOf(data[i]) == -1) 
+        if(!Object.keys(text_ids).includes(data[i])) 
           text_ids[data[i]] = [];
 
         text_ids[data[i]].push( position[i] );
@@ -469,21 +476,33 @@ class WordView extends VisManager
     let text_label = [];
 
     if(Object.keys(text_ids).length == 0)
-      text_label = PROJECTION_VIEW.sentences.filter(function(stn){ return data_filtered.indexOf(stn.sentence_id) > -1 });
+      text_label = PROJECTION_VIEW.sentences.filter(function(stn){ return data_filtered.includes(stn.sentence_id); });
     else
-      text_label = PROJECTION_VIEW.sentences.filter(function(stn){ return Object.keys(text_ids).indexOf(stn.sentence_id) > -1 });
+      text_label = PROJECTION_VIEW.sentences.filter(function(stn){ return Object.keys(text_ids).includes(stn.sentence_id); });
 
     EXPLANATION_VIEW.select_items(text_label);
     TEXT_VIEW.select_items(Object.keys(text_ids).length == 0 ? data_filtered : text_ids);
   }
+  counter(array)
+  {
+    let counts = {};
+
+    for(let element of array) 
+    {
+      counts[element.frequency] = (counts[element.frequency] || 0) + 1;
+    }
+
+    return counts;    
+  }
   zipf_law(words)
   {
-    const samples = 50;
     let filtered = words;
     let min_freq = words[0].frequency;
     let max_freq = words[words.length - 1].frequency;      
+    let counts = this.counter(filtered)
     
-    if(min_freq !== max_freq)
+    //The filtering process with less than 4 different frequencies doesn't make sense
+    if(min_freq !== max_freq && Object.keys(counts).length > 3)
     {
       //Remove lower and upper frequencies
       filtered = words.filter(function(item) { return item.frequency > min_freq && item.frequency < max_freq; });
@@ -496,7 +515,7 @@ class WordView extends VisManager
       filtered = filtered.filter(function(item) { return (item.frequency / max_norm_factor) > min_freq && (item.frequency / max_norm_factor) < max_freq; });
     }  
 
-    return filtered.length > samples ? filtered.slice(-samples) : filtered;
+    return filtered.length > this.max_samples ? filtered.slice(-this.max_samples) : filtered;
   }    
   show(data, clean=true)
   {
@@ -542,7 +561,7 @@ class WordView extends VisManager
 
           item.sentences.forEach(function(stn, j)
           {
-            if(items.indexOf(stn) !== -1)
+            if(items.includes(stn))
             {
               new_item.frequency += 1;
               new_item.sentences.push(stn);
@@ -578,8 +597,9 @@ class Explanation extends VisManager
     this.drawer = new SankyDiagram(chart_id, TOOLTIP);
     this.classes = null;
     this.data = null;
+    this.name = null;
     this.selected_classes = [];
-    this.selected_sentence = [];    
+    this.selected_sentence = [];
     const _this = this;
     this.drawer.on("end", function(data, position){ _this.drawer_callback(data, position); });    
   }
@@ -592,9 +612,9 @@ class Explanation extends VisManager
 
     for(let i = 0; i < data.length; i++)
     {
-      if(data_filtered.indexOf(data[i]) !== -1)
+      if(data_filtered.includes(data[i]))
       {
-        if(Object.keys(text_ids).indexOf(data[i]) == -1) 
+        if(!Object.keys(text_ids).includes(data[i])) 
           text_ids[data[i]] = [];
 
         if(position.length > 0)
@@ -613,7 +633,7 @@ class Explanation extends VisManager
     let aux_search = Object.assign([], this.classes);
 
     if(this.selected_classes.length > 0)
-      aux_search = this.classes.filter(function(cls){ return _this.selected_classes.indexOf(cls) !== -1 });
+      aux_search = this.classes.filter(function(cls){ return _this.selected_classes.includes(cls); });
 
     let node_objects = aux_search.map(function(item, i) { return {id: item, type: "class"}; });
     //Avoides classes and tokens with the same name
@@ -624,7 +644,7 @@ class Explanation extends VisManager
     let links  = [];
 
 
-    //Create links a tokens for each class row in this.data.explanations.
+    //Create links and tokens for each class row in this.data.explanations.
     for(let i = 0; i < this.data.explanations.length; i++)
     {
       let source_i = aux_search.indexOf(this.classes[i] + "_class");
@@ -650,33 +670,35 @@ class Explanation extends VisManager
           {
             if(count == this.drawer.total_links)
               break;
-
-            let filter = this.data.sentences[j];
-
+            
             if(this.data.explanations[i][j] > 0)
             {
-              if(this.selected_sentence.length > 0)
-                filter = this.data.sentences[j].filter(function(stn){ return _this.selected_sentence.indexOf(stn) !== -1;  })
+              let token_selected_sentences = this.data.sentences[j];
 
-              if(filter.length > 0)
+              if(this.selected_sentence.length > 0)
+                token_selected_sentences = token_selected_sentences.filter(function(stn, index)
+                { 
+                  return _this.selected_sentence.includes(stn) && _this.data.label[j][index] === _this.classes[i];  
+                });
+
+              if(token_selected_sentences.length > 0)
               {
                 count++;
 
-                let tkn   = this.data.tokens[j];
-                let target_i = aux_search.indexOf(tkn);
+                let target_i = aux_search.indexOf(this.data.tokens[j]);
   
                 if (target_i == -1)
                 {
                   token.push({
-                    id: tkn, 
+                    id: this.data.tokens[j], 
                     type: "token", 
                     sentences: this.data.sentences[j],  
-                    label: this.data.label[j],
+                    label: this.data.label[j], //ground-truth
                     position: this.data.position[j], 
                     named_entity: this.data.named_entity[j], 
                     postag: this.data.postag[j]
                   });
-                  aux_search.push(tkn);
+                  aux_search.push(this.data.tokens[j]);
                   target_i = aux_search.length - 1;
                 }  
   
@@ -705,6 +727,8 @@ class Explanation extends VisManager
         cls.fixedValue = class_min_value / 2;
     });
 
+    this.set_header("Class - " + node_objects.length + " predicted classes - " + this.name);
+
     return {nodes: node_objects.concat(token), links: links, sentences: PROJECTION_VIEW.sentences};
   }   
   show(data, clean=true)
@@ -713,8 +737,9 @@ class Explanation extends VisManager
 
     this.classes = objs.ids;
     this.data = objs.data
+    this.name = objs.name;
 
-    this.set_header("Class - " + this.classes.length + " predicted classes - " + objs.name);
+    this.set_header("Class - " + this.classes.length + " predicted classes - " + this.name);
     
     this.drawer.draw(this.process_data(), {}, LABEL_COLOR_PALETTE);
   }
@@ -728,9 +753,9 @@ class Explanation extends VisManager
     {
       items.forEach(function(obj)
       {
-        if(_this.selected_sentence.indexOf(obj.sentence_id) === -1)
+        if(!_this.selected_sentence.includes(obj.sentence_id))
           _this.selected_sentence.push(obj.sentence_id);
-        if(_this.selected_classes.indexOf(obj.label) === -1)
+        if(!_this.selected_classes.includes(obj.label))
           _this.selected_classes.push(obj.label);
       });
     }
@@ -867,6 +892,7 @@ class TextView extends VisManager
     }
 
     this.paginator.manage_control();
+    this.set_header("Text - " + this.paginator.get_count_text() + " samples");
   }
   clear_all(event)
   {
@@ -879,9 +905,11 @@ class TextView extends VisManager
 
       PROJECTION_VIEW.select_items(text_id);
       WORD_VIEW.select_items(text_id);
-      text_id = PROJECTION_VIEW.sentences.filter(function(stn){ return text_id.indexOf(stn.sentence_id) > -1 });
+      text_id = PROJECTION_VIEW.sentences.filter(function(stn){ return text_id.includes(stn.sentence_id); });
       EXPLANATION_VIEW.select_items(text_id);    
-    });    
+    });
+    
+    this.set_header("Text - " + this.paginator.get_count_text() + " samples");
   }
   drawer_callback(event)
   {
@@ -905,7 +933,7 @@ class TextView extends VisManager
 
     PROJECTION_VIEW.select_items(text_id);
     WORD_VIEW.select_items(text_id);
-    text_id = PROJECTION_VIEW.sentences.filter(function(stn){ return text_id.indexOf(stn.sentence_id) > -1 });
+    text_id = PROJECTION_VIEW.sentences.filter(function(stn){ return text_id.includes(stn.sentence_id); });
     EXPLANATION_VIEW.select_items(text_id);    
   }
   get_unique_token(text_tokens)
@@ -936,6 +964,7 @@ class TextView extends VisManager
     this.paginator.set_selected_text(FILTER.count(this.filter_type) === 0 ? [] : items);
     this.paginator.paginate_text();
     this.paginator.manage_control();
+    this.set_header("Text - " + this.paginator.get_count_text() + " samples");
   }      
 }
 
@@ -1000,7 +1029,7 @@ class PaginateText
       return this.call_back;
     if (arguments.length === 1)
       return this.call_back[type];
-    if (Object.keys(this.call_back).indexOf(type) > -1)
+    if (Object.keys(this.call_back).includes(type))
       this.call_back[type] = call_back;
 
     return this;
@@ -1054,12 +1083,12 @@ class PaginateText
       //Selection from: scatterplot and heatmap
       if(this.selected_text instanceof Array)
       {
-        hidden = this.selected_text.length > 0 && this.selected_text.indexOf(cols[idx].dataset.id) == -1;
+        hidden = this.selected_text.length > 0 && !this.selected_text.includes(cols[idx].dataset.id);
       }
       //Selection from: treemap
       else if(ids.length > 0)
       {
-        hidden = ids.indexOf(cols[idx].dataset.id) == -1;
+        hidden = !ids.includes(cols[idx].dataset.id);
 
         if(!hidden)
         {
