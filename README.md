@@ -27,8 +27,9 @@
       (2) BBCNews
   -m  model index (required)
       (0) BERT
-      (1) Llama 3.1 (8B)
-      (2) Gemma 2 (9B)
+      (1) DeBERTa 2 (88B)
+      (2) Llama 3.1 (8B)
+      (3) Gemma 2 (9B)
   -o  path to save the outputs (required)
   -s  path to load the data (if the dataset loads from files, such as PaperAbstract, TinyStories, and BBCNews)
   -n  number of samples to load from the dataset (default = 100)
@@ -37,7 +38,8 @@
 
 2. Available models
 
-  - [BERT](https://huggingface.co/google-bert/bert-base-uncased) base uncased
+  - [BERT](https://huggingface.co/google-bert/bert-base-uncased) base uncased with 110 milion parameters
+  - [DeBERTa](https://huggingface.co/microsoft/deberta-v2-xlarge) version 2 with ~88 bilion parameters
   - [Llama](https://huggingface.co/meta-llama/Llama-3.1-8B) version 3.1 with 8 billion parameters
   - [Gemma](https://huggingface.co/google/gemma-2-9b) version 2 with 9 billion parameters
 
@@ -74,7 +76,7 @@
     - Use the top-right menu to clear all text selections
     - Left-most bar color maps classes
 
-## **Code basic structure**
+## **Basic code structure**
 
 1. Feature extractor:
   - extractor/extract_features.py
@@ -88,3 +90,4 @@
   - static/js/client.js: document.addEventListener("DOMContentLoaded", function(){ .. })
   - static/js/svg.js: MySVG
   - static/css/vis.css
+

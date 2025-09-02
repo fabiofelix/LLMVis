@@ -14,6 +14,7 @@ SEED_VALUE = 1537
 main_cache_path = os.path.join("/vast", os.path.basename(os.path.expanduser("~")))
 clip_download_root = None
 omni_path = os.path.join(os.path.expanduser("~"), ".cache/torch/hub/facebookresearch_omnivore_main")
+hugging_path = None
 
 if os.path.isdir(main_cache_path):
   cache_path = os.path.join(main_cache_path, "cache")
@@ -31,6 +32,8 @@ if os.path.isdir(main_cache_path):
 
   torch.hub.set_dir(cache_path) #default: ~/.cache/torch/hub  
   omni_path = os.path.join(cache_path, "facebookresearch_omnivore_main")
+
+  hugging_path = os.path.join(cache_path, "huggingface", "hub")
 
 #to work with: torch.multiprocessing.set_start_method('spawn')
 sys.path.append(omni_path)

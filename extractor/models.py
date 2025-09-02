@@ -2,20 +2,25 @@
 import os, torch, pdb, numpy as np
 
 from enum import IntEnum
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers import AutoTokenizer, AutoModelForCausalLM, AutoModelForSequenceClassification
+
+import utils
 
 LLAMA_HPC_PATH = ""
 
 class MODEL(IntEnum): 
   MYBERT = 0
-  MYLLAMA = 1
-  MYGEMMA = 2
+  MYDEBERTA = 1
+  MYLLAMA = 2
+  MYGEMMA = 3
 
 def create_model(type):
   model = None
 
   if type == MODEL.MYBERT:
     model = MyBERT()
+  elif type == MODEL.MYDEBERTA:
+    model = MyDeBERTa()    
   elif type == MODEL.MYLLAMA:  
     model = MyLlama()
   elif type == MODEL.MYGEMMA:  
@@ -38,17 +43,18 @@ class MyModelFamily():
     return len(self.model.model.layers) + 1  
 
   def create_model(self):
-    self.model = AutoModelForCausalLM.from_pretrained(self.model_path, torch_dtype=torch.float16, device_map='auto')        
+    self.model = AutoModelForCausalLM.from_pretrained(self.model_path, torch_dtype=torch.float16, device_map='auto', cache_dir = self.cache_path)        
     self.inc_pos = False
 
   def create_tokenizer(self):    
-    self.tokenizer = AutoTokenizer.from_pretrained(self.model_path, truncation_side = "right")
+    self.tokenizer = AutoTokenizer.from_pretrained(self.model_path, truncation_side = "right", cache_dir = self.cache_path)
 
   def get_special_token(self):
     return None
   
   def set_model_path(self):
     self.model_path = None
+    self.cache_path = None
 
   def clean_token(self, token):
     return token
@@ -89,10 +95,13 @@ class MyModelFamily():
 
     return decoded_token, decoded_pos
 
+  def call_model(self, data_tokens):
+    return self.model(**data_tokens, return_dict_in_generate=True, output_hidden_states=True, output_attentions = False, output_scores=False)
+
   @torch.no_grad()
   def extract_feature(self, data, return_blocks = None):
     data_tokens = self.tokenizer(data, return_tensors = "pt", padding = True, padding_side="left", truncation = True).to("cuda")
-    results     = self.model(**data_tokens, return_dict_in_generate=True, output_hidden_states=True, output_attentions = False, output_scores=False)
+    results     = self.call_model(data_tokens)
 
     return_blocks = [-1] if return_blocks is None or len(return_blocks) == 0 else return_blocks
     block_feature = []
@@ -121,8 +130,10 @@ class MyBERT(MyModelFamily):
     #The mode has 12 layers (+ inicial embedding layer) and 768 features in the hidden-state
     self.model_path = "bert-base-uncased"  
 
+    self.cache_path = utils.hugging_path
+
   def create_model(self):
-    self.model = AutoModelForCausalLM.from_pretrained(self.model_path, torch_dtype=torch.float16, is_decoder = True)
+    self.model = AutoModelForCausalLM.from_pretrained(self.model_path, torch_dtype=torch.float16, is_decoder = True, cache_dir = self.cache_path)
     self.inc_pos = True
 
   def get_special_token(self):
@@ -133,6 +144,34 @@ class MyBERT(MyModelFamily):
 
   def clean_token(self, token):
     return token.replace("##", "")
+
+class MyDeBERTa(MyModelFamily):
+  def __str__(self):
+    return "DeBERTa-v2-xlarge"
+  
+  def __len__(self):
+    #transformer layer + embedding layer + rel_embeddings
+    return len(self.model._modules["deberta"].encoder.layer) + 2
+  
+  def set_model_path(self):
+    self.model_path = "microsoft/deberta-v2-xlarge-mnli"
+    self.cache_path = utils.hugging_path
+
+  def create_model(self):
+    self.model = AutoModelForSequenceClassification.from_pretrained(self.model_path, torch_dtype=torch.float16, is_decoder = True, cache_dir = self.cache_path)
+    self.inc_pos = True
+
+  def get_special_token(self):
+    return [self.tokenizer.bos_token, self.tokenizer.eos_token, self.tokenizer.unk_token, self.tokenizer.sep_token, self.tokenizer.pad_token, self.tokenizer.cls_token, self.tokenizer.mask_token]
+
+  def normalize_str(self, text):  
+    return self.tokenizer.backend_tokenizer.normalizer.normalize_str(text)
+
+  def clean_token(self, token):
+    return token.replace("##", "")  
+  
+  def call_model(self, data_tokens):
+    return self.model(**data_tokens, return_dict=True, output_hidden_states=True, output_attentions = False)  
   
 class MyLlama(MyModelFamily):  
   def __str__(self):
