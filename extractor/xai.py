@@ -125,7 +125,7 @@ class MyLime(Explainer):
 
 class MyShap(Explainer):  
   def create_explainer(self, X_train, X_test, feature_names, label_names):
-    self.explainer = shap.KernelExplainer(self.classifier.predict, X_test)
+    self.explainer = shap.KernelExplainer(self.classifier.predict_proba, X_test, link = "logit")
 
   def do_run(self, X_test, y_test, feature_names, label_ids, label_names):    
     label_prob  = self.classifier.predict_proba(X_test)
@@ -139,7 +139,7 @@ class MyShap(Explainer):
       self.exp_space["predicted_label"].append(label_names[lb_pred])
       self.exp_space["predicted_prob"].append(lb_prob[lb_pred])
 
-      for idx, values in enumerate(shap_v):
+      for idx, values in enumerate(shap_v[:, lb_pred]):
         self.exp_space[ feature_names[idx] ].append(values)
 
     # pdb.set_trace()
