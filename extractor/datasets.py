@@ -1,6 +1,5 @@
 
 import os, pandas as pd, numpy as np, re, pdb, glob, math
-from sklearn.model_selection import train_test_split
 from enum import IntEnum
 from nlp import MyLDA
 
@@ -110,6 +109,7 @@ class PaperAbstract(TextDataset):
 
     return texts[["name", "text", "processed_text", "label", "topic"]]
 
+#TODO: load from hugginface dataset instead of from the downloaded file
 ## https://huggingface.co/datasets/roneneldan/TinyStories
 class TinyStories_V2(TextDataset):
   def __init__(self, path = None):
@@ -120,12 +120,12 @@ class TinyStories_V2(TextDataset):
     return "TinyStories-v2" 
 
   def get_data(self, n_samples = 100, max_text_length = None):  
-    train = os.path.join(self.data_path, "TinyStoriesV2-GPT4-valid.txt")
+    validation = os.path.join(self.data_path, "TinyStoriesV2-GPT4-valid.txt")
     sep_text = "<|endoftext|>"
 
     filenames = []
     text = []
-    data = open(train)
+    data = open(validation)
 
     try:
       row_text = ""
@@ -145,7 +145,7 @@ class TinyStories_V2(TextDataset):
 
     texts = pd.DataFrame({"name": filenames, "text": text, "processed_text": None, "label": None, "topic": None})
     texts.topic = self.topic.run(texts.text.to_list())
-    texts, _, _, _ = train_test_split(texts, texts.topic, train_size = n_samples, random_state=utils.SEED_VALUE)  
+    texts = self.sampling(texts, texts["topic"], n_samples)
 
     return texts[["name", "text", "processed_text", "label", "topic"]]
 
