@@ -124,6 +124,7 @@ class MyBERT(MyModelFamily):
     return len(self.model._modules["bert"].encoder.layer) + 1
   
   def set_model_path(self):
+    super().set_model_path()
     #A NOT case sensitive model pretrained with two self-supervised tasks:
     #1. Predicts masked words of a sentence
     #2. Predicts if two masked sentences are following each other or not  
@@ -150,10 +151,11 @@ class MyDeBERTa(MyModelFamily):
     return "DeBERTa-v2-xlarge"
   
   def __len__(self):
-    #transformer layer + embedding layer + rel_embeddings
-    return len(self.model._modules["deberta"].encoder.layer) + 2
+    #transformer layer + embedding layer
+    return len(self.model._modules["deberta"].encoder.layer) + 1
   
   def set_model_path(self):
+    super().set_model_path()
     self.model_path = "microsoft/deberta-v2-xlarge-mnli"
     self.cache_path = utils.hugging_path
 
@@ -185,6 +187,7 @@ class MyLlama(MyModelFamily):
     return [self.tokenizer.bos_token, self.tokenizer.eos_token, self.tokenizer.unk_token]
 
   def set_model_path(self):
+    super().set_model_path()
     self.model_path = os.path.join(LLAMA_HPC_PATH, "llama-3.1/huggingface", "Llama-3.1-8B") 
 
 
@@ -196,5 +199,6 @@ class MyGemma(MyModelFamily):
     return [self.tokenizer.bos_token, self.tokenizer.eos_token, self.tokenizer.unk_token, self.tokenizer.pad_token]
 
   def set_model_path(self):
+    super().set_model_path()
     self.model_path = os.path.join(LLAMA_HPC_PATH, "gemma", "gemma-2-9b") 
 
