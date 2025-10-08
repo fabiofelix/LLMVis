@@ -39,12 +39,12 @@ def is_number(value):
 def is_ordinal(value):
   number_pattern = "([0-9]*)(?:st|nd|rd|th)"
 
-  return re.match(number_pattern, value.lower())  
+  return re.match(number_pattern, value.lower()) is not None
 
 def is_decade(value):
   number_pattern = r"(\d{2}|\d{4})s"
 
-  return re.match(number_pattern, value.lower())  
+  return re.match(number_pattern, value.lower()) is not None 
 
 def has_letter(value):
   letter_patern = '[a-zA-Z]'
@@ -57,6 +57,7 @@ def filter_stop_words(token_desc):
 
   for desc in token_desc:
     desc = '' if desc is None else desc.strip()
+    #ignore punctuations
     desc_stop = re.sub(r'[^\w\s]', '', desc)
     
     if (desc != '' and

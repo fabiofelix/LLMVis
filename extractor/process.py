@@ -52,8 +52,6 @@ def aggregate_feature_axis(text_token_feat, token_desc, aggregation = "norm"):
     num_token = len(idx2tkn)
     new_tensor = [ [0] * num_token for _ in range(len(text_token_feat[key])) ]
 
-    # pdb.set_trace()
-
     for txt_id, (tkn_feat, tkn_desc) in enumerate(zip(text_token_feat[key], token_desc)):
       tkn_desc = np.array([ desc.strip() for desc in tkn_desc ])
       filtered = [ dsc for dsc in np.unique(tkn_desc) if dsc in tkn2idx ]
@@ -73,4 +71,3 @@ def aggregate_feature_axis(text_token_feat, token_desc, aggregation = "norm"):
     text_token[key] = new_tensor
 
   return text_token, idx2tkn
-
