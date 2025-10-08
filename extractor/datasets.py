@@ -10,6 +10,7 @@ class DATASET(IntEnum):
   PAPERABSTRACT = 0
   BBCNEWS = 1
   TINYSTORIESV2 = 2
+  AMAZONREVIEW = 3
 
 def create_dataset(type, path):
   dataset = None
@@ -20,6 +21,8 @@ def create_dataset(type, path):
     dataset = BBCNews(path)
   elif type == DATASET.TINYSTORIESV2:  
     dataset = TinyStories_V2(path)
+  elif type == DATASET.AMAZONREVIEW:  
+    dataset = AmazonFoodReview(path)
 
   return dataset          
 
@@ -66,7 +69,7 @@ class TextDataset():
 
     return pd.concat(sampled_data).sort_index()
 
-  def get_data(self, n_samples = 100):
+  def get_data(self, n_samples = 100, max_text_length = None):
     pass
 
   def format(self, data):
@@ -80,7 +83,7 @@ class PaperAbstract(TextDataset):
   def __str__(self):
     return "PaperAbstract"
   
-  def get_data(self, n_samples = 100):
+  def get_data(self, n_samples = 100, max_text_length = None):
     train = pd.read_csv(os.path.join(self.data_path, "train.csv"))
 
     train = train.rename(columns={"ABSTRACT": "text"})
@@ -187,3 +190,20 @@ class BBCNews(TextDataset):
     texts = self.sampling(texts, texts["label"], n_samples)
 
     return self.format(texts[["name", "text", "processed_text", "label", "topic"]])
+
+# https://www.kaggle.com/datasets/snap/amazon-fine-food-reviews
+# http://snap.stanford.edu/data/web-FineFoods.html
+# http://i.stanford.edu/~julian/pdfs/www13.pdf
+class AmazonFoodReview(TextDataset):
+  def __str__(self):
+    return "Amazon-Fine-Food-Reviews"
+
+  def get_data(self, n_samples = 100, max_text_length = None):
+    data = pd.read_csv(self.data_path)
+    filename = [ "AmazonFoodReviews_{}".format(id) for id in data["Id"].to_numpy() ]
+
+    texts = pd.DataFrame({"name": filename, "text": data["Text"], "processed_text": None, "label": data["Score"], "topic": None})
+    texts = self.sampling(texts, texts["label"], n_samples)
+
+    return self.format(texts[["name", "text", "processed_text", "label", "topic"]])    
+

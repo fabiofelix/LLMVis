@@ -25,13 +25,14 @@
       (0) PaperAbstract
       (1) TinyStories
       (2) BBCNews
+      (3) Amazon
   -m  model index (required)
       (0) BERT
       (1) DeBERTa 2 (88B)
       (2) Llama 3.1 (8B)
       (3) Gemma 2 (9B)
   -o  path to save the outputs (required)
-  -s  path to load the data (if the dataset loads from files, such as PaperAbstract, TinyStories, and BBCNews)
+  -s  path to load the data (if the dataset loads from files, such as PaperAbstract, TinyStories, BBCNews, or Amazon)
   -n  number of samples to load from the dataset (default = 100)
   -b  batch size (default = 100)
 ``` 
@@ -48,6 +49,7 @@
   - [PaperAbstract](https://www.kaggle.com/datasets/blessondensil294/topic-modeling-for-research-articles) with paper abstracts
   - [TinyStories-V2](https://huggingface.co/datasets/roneneldan/TinyStories) (generated with GPT-4) with small children stories
   - [BBCNews](http://mlg.ucd.ie/datasets/bbc.html)
+  - [Amazon](http://snap.stanford.edu/data/web-FineFoods.html) with fine foods reviews
 
 ## **Visualization**
 
