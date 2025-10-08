@@ -122,6 +122,7 @@ def process_explanation(config, obj_path, dataset, model, obj_type, opt, opt_typ
         "tokens": data["token_ids"].tolist(),
         "explanations": data["explanation"].tolist(),
         "class_report": data["class_report"].tolist(),
+        "exp_report": data["exp_report"].tolist(),
         "position": [],
         "postag": [],
         "named_entity": []

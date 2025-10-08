@@ -94,6 +94,7 @@ def save_explanation(args, text_token, tkn_ids, stn_ids, labels, pattern_file):
 
       exp_abs_mean = []
       class_report = []  
+      exp_report = exp.infidelity.to_numpy()
 
       for lb in explainer.label_encoder.classes_:
         abs_mean = pd.Series([0] * len(tkn_ids), index = tkn_ids)
@@ -117,8 +118,10 @@ def save_explanation(args, text_token, tkn_ids, stn_ids, labels, pattern_file):
                token_ids = tkn_ids, 
                text_ids = stn_ids, 
                explanation=[ row[1:].to_numpy()  for _, row in exp_abs_mean.iterrows() ],
-               class_report = class_report
+               class_report = class_report,
+               exp_report = exp_report
                )                    
+
 ## projection: <dataset>-<number_samples>_<model>-b<model_block>_sentence_proj-<projection_name>.npz
 def save_projection(args, text_feat, sentence_name, sentence_label, pattern_file, update = False):
   print("|- Saving projections (text)")
@@ -231,8 +234,9 @@ def run(args, parser):
 
   save_projection(args, text_feat, text_data.name.to_numpy(), labels, pattern_file_data_model_block)
   save_explanation(args, text_token, tkn_ids, stn_ids, labels, pattern_file_data_model_block, row_ids=text_data.name.to_numpy())
-
-  print("|- {} samples - {} tokens".format(text_data.shape[0], len(tkn_ids)))
+  
+  unique_token_desc = np.unique([desc for row in token_desc for desc in row])
+  print("|- {} samples - {} tokens - {} (filtered stop-words)".format(text_data.shape[0], len(unique_token_desc), len(tkn_ids)))
 
 def main(*args):
   parser = argparse.ArgumentParser(description="")

@@ -780,7 +780,6 @@ class Explanation extends VisManager
 
       for(let i = 0; i < this.data.class_report.length; i++)
       {
-
         html += "<tr>";
 
         html += "<td>" + this.classes[i] + "</td>";
@@ -818,6 +817,19 @@ class Explanation extends VisManager
       html += "</tfoot>";
       html += "</table>"
       html += "</div>";
+
+      let infidelity = this.data.exp_report.reduce((accumulator, value) => accumulator + value, 0) / this.data.exp_report.length;
+      let std = this.data.exp_report.reduce((accumulator, value) => accumulator + (value - infidelity) ** 2, 0);
+      std = Math.sqrt( std / (this.data.exp_report.length - 1) );
+
+      html += "<div class='table-responsive'>";
+      html += "<table class='table table-bordered' id='dataTable' width='100%' cellspacing='0'>";
+      html += "<caption class='table-caption'>Explanation report</caption>";
+      html += "<thead><tr><th></th><th>infidelity</th></tr></thead>";
+      html += "<tbody>";
+      html += "<th>avg&plusmn;std</th>";
+      html += "<td>" + infidelity.toFixed(4) + "&plusmn;" + std.toFixed(4) + "</td>";
+      html += "</tbody>";      
 
       return html;
     }

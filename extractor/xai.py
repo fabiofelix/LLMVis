@@ -2,11 +2,25 @@
 import numpy as np, pandas as pd, tqdm, pdb
 import utils
 import shap
+import torch
 
 from lime import lime_tabular
 from sklearn import svm
 from sklearn.preprocessing import LabelEncoder, StandardScaler, MinMaxScaler
 from sklearn.metrics import classification_report
+
+from captum.metrics import infidelity
+
+def model_forward(X_test, classifier):
+  label_prob = classifier.predict_proba(X_test.detach().cpu().numpy())
+  label_pred = label_prob.argmax(axis = 1)
+
+  return torch.tensor([ prob[idx] for prob, idx in zip(label_prob, label_pred) ], dtype=torch.float32)
+
+def perturb_fn(X_test):
+  # Random Gaussian noise perturbation
+  noise = 0.01 * torch.randn_like(X_test)
+  return noise, X_test - noise  
 
 class Explainer:
   ## As the tokens are represented by their feature-vector norm, a zero value implies in no presence of
@@ -81,6 +95,13 @@ class Explainer:
     y_pred = self.classifier.predict(X_test)
 
     return classification_report(y_test, y_pred, zero_division = 0, labels = label_codes, target_names = label_names, output_dict=True)
+  
+  def evaluate_explainer(self, sample, explanation):
+    sample = torch.tensor(sample, dtype=torch.float32).reshape(1, -1)
+    explanation = torch.tensor(explanation, dtype=torch.float32).unsqueeze(0)
+    infidelity_metric = infidelity(forward_func = model_forward, perturb_func = perturb_fn, inputs = sample, attributions = explanation, n_perturb_samples = 10, additional_forward_args = self.classifier)
+
+    return infidelity_metric.detach().cpu().numpy().item()  
 
   def run(self, data, labels, feature_names, test_samples_per_class = 5):
     labels = self.label_encoder.fit_transform(labels)
@@ -94,7 +115,7 @@ class Explainer:
     eval = self.evaluate_classifier(X_test, y_test, self.label_encoder.transform(self.label_encoder.classes_), self.label_encoder.classes_)
     self.create_explainer(X_train, X_test, feature_names, self.label_encoder.classes_)
 
-    self.exp_space = {"original_label": [], "predicted_label": [], "predicted_prob": []}
+    self.exp_space = {"original_label": [], "predicted_label": [], "predicted_prob": [], "infidelity": []}
 
     for feat in feature_names:
       self.exp_space[feat] = []
@@ -116,9 +137,14 @@ class MyLime(Explainer):
       self.exp_space["predicted_prob"].append(label_prob[label_pred])
 
       lime_values = lime_values.as_map()[label_pred]
+      exp_space_array = np.zeros(sample.shape[0])
 
       for values in lime_values:
         self.exp_space[ feature_names[values[0]] ].append(values[1])
+        exp_space_array[values[0]] = values[1]
+
+      infidelity = self.evaluate_explainer(sample, exp_space_array)
+      self.exp_space["infidelity"].append(infidelity)        
 
     # pdb.set_trace()
     return pd.DataFrame(self.exp_space)
@@ -134,14 +160,17 @@ class MyShap(Explainer):
     print("|-- SHAP explanation")
     shap_values = self.explainer(X_test)
 
-    for label, shap_v, lb_pred, lb_prob in zip(y_test, shap_values.values, label_pred, label_prob):  
+    for sample, label, shap_v, lb_pred, lb_prob in zip(X_test, y_test, shap_values.values, label_pred, label_prob):  
       self.exp_space["original_label"].append(label_names[label])
       self.exp_space["predicted_label"].append(label_names[lb_pred])
       self.exp_space["predicted_prob"].append(lb_prob[lb_pred])
+      exp_space_array = np.zeros(sample.shape[0])
 
       for idx, values in enumerate(shap_v[:, lb_pred]):
         self.exp_space[ feature_names[idx] ].append(values)
+        exp_space_array[idx] = values
+        
+      infidelity = self.evaluate_explainer(sample, exp_space_array)
+      self.exp_space["infidelity"].append(infidelity)          
 
-    # pdb.set_trace()
     return pd.DataFrame(self.exp_space)
-
