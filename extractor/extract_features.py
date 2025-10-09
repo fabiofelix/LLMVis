@@ -164,7 +164,8 @@ def run(args, parser):
   np.random.seed(utils.SEED_VALUE)
   torch.manual_seed(utils.SEED_VALUE)
 
-  dataset = datasets.create_dataset(args.dataset, args.source_path)
+  map_tokens = utils.read_map_tokens(args.map_path)
+  dataset = datasets.create_dataset(args.dataset, args.source_path, map_tokens)
   model = models.create_model(args.model)
 
   print("|- Loading data")
@@ -247,6 +248,8 @@ def main(*args):
   parser.add_argument("-o", "--output", help = "Path to save results", dest = "output_path", required = True)
   parser.add_argument("-n", "--nsample", help = "Number of samples to load from the dataset", dest = "nsample", required = False, default = 100, type = int)
   parser.add_argument("-b", "--batch", help = "Batch size to process the dataset", dest = "batch_size", required = False, default = 100, type = int)
+
+  parser.add_argument("-mp", "--map", help = "key-value file to map tokens", dest = "map_path", required = False, default = None)
 
   parser.set_defaults(func = run)
   

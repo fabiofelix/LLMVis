@@ -11,23 +11,24 @@ class DATASET(IntEnum):
   TINYSTORIESV2 = 2
   AMAZONREVIEW = 3
 
-def create_dataset(type, path):
+def create_dataset(type, path, map_tokens):
   dataset = None
 
   if type == DATASET.PAPERABSTRACT:
-    dataset = PaperAbstract(path)
+    dataset = PaperAbstract(path, map_tokens)
   elif type == DATASET.BBCNEWS:  
-    dataset = BBCNews(path)
+    dataset = BBCNews(path, map_tokens)
   elif type == DATASET.TINYSTORIESV2:  
-    dataset = TinyStories_V2(path)
+    dataset = TinyStories_V2(path, map_tokens)
   elif type == DATASET.AMAZONREVIEW:  
-    dataset = AmazonFoodReview(path)
+    dataset = AmazonFoodReview(path, map_tokens)
 
   return dataset          
 
 class TextDataset():
-  def __init__(self, path = None):
+  def __init__(self, path = None, map_tokens = None):
     self.data_path = path
+    self.map_tokens = map_tokens
 
   def __class_sample_size(self, data, labels, sample_size):
     if sample_size > len(data):
@@ -75,6 +76,17 @@ class TextDataset():
     data["text"] = data["text"].str.replace("''", '"')
 
     return data
+  
+  def map_text(self, data):
+    if self.map_tokens is not None:
+      for idx, row in data.iterrows():
+        for key, value in self.map_tokens.items():
+          pattern = r"\b" + re.escape(key) + r"\b"
+          row["text"] = re.sub(pattern, value, row["text"])
+
+        data.at[idx, "text"] = row["text"]
+
+    return data
 
 ##https://www.kaggle.com/datasets/blessondensil294/topic-modeling-for-research-articles
 ##https://www.kaggle.com/code/vanooshenzr/topic-modeling-using-bert-and-lda/notebook
@@ -112,8 +124,8 @@ class PaperAbstract(TextDataset):
 #TODO: load from hugginface dataset instead of from the downloaded file
 ## https://huggingface.co/datasets/roneneldan/TinyStories
 class TinyStories_V2(TextDataset):
-  def __init__(self, path = None):
-    super().__init__(path)
+  def __init__(self, path = None, map_tokens = None):
+    super().__init__(path, map_tokens)
     self.topic = MyLDA()
 
   def __str__(self):
@@ -188,6 +200,7 @@ class BBCNews(TextDataset):
 
     texts = pd.DataFrame({"name": filename, "text": text, "processed_text": None, "label": label, "topic": None})
     texts = self.sampling(texts, texts["label"], n_samples)
+    texts = self.map_text(texts)
 
     return self.format(texts[["name", "text", "processed_text", "label", "topic"]])
 

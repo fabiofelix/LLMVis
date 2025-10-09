@@ -4,6 +4,7 @@ import torch
 import sys
 import numba
 import numpy as np
+import re
 
 SEED_VALUE = 1537
 
@@ -53,3 +54,25 @@ def get_filtered_indices(x, lower_threshold = 1):
   filter = (x > np.max((min_value, q1 - 1.5 * iqr))) & (x < np.min((max_value, q3 + 1.5 * iqr)))
 
   return np.where(filter)[0]
+
+## reads a file with key-value map tokens
+## each mapping patter per line
+## key-value separated by space or tabulation
+def read_map_tokens(map_path):
+  if map_path is not None:
+    map_tokens = {}
+    file = open(map_path)
+
+    try:
+      for line in file:
+        line = re.sub(r'\n+', "", line)
+        line = re.sub(r'\s+', " ", line)
+        line = line.strip()
+        key, value = line.split(" ")
+        map_tokens[key] = value
+    finally:
+      file.close()
+
+    return map_tokens
+
+  return None
