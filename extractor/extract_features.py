@@ -85,7 +85,7 @@ def save_explanation(args, text_token, tkn_ids, stn_ids, labels, pattern_file):
 
   for key, txt_tokens in text_token.items():
     for explain_name, explain_class in [("LIME", MyLime), ("SHAP", MyShap)]:
-      explainer = explain_class()
+      explainer = explain_class(random_state=utils.SEED_VALUE)
       filtered_text_token = np.array(txt_tokens)[:, filter]
 
       exp, class_eval = explainer.run(filtered_text_token, labels, tkn_ids)
@@ -93,7 +93,7 @@ def save_explanation(args, text_token, tkn_ids, stn_ids, labels, pattern_file):
       exp = exp.set_index("predicted_label")
 
       exp_abs_mean = []
-      class_report = []  
+      class_report = []
       exp_report = exp.infidelity.to_numpy()
 
       for lb in explainer.label_encoder.classes_:

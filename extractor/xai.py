@@ -1,12 +1,11 @@
 
-import numpy as np, pandas as pd, tqdm, pdb
-import utils
+import numpy as np, pandas as pd, tqdm
 import shap
 import torch
 
 from lime import lime_tabular
 from sklearn import svm
-from sklearn.preprocessing import LabelEncoder, StandardScaler, MinMaxScaler
+from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 from sklearn.metrics import classification_report
 
 from captum.metrics import infidelity
@@ -24,10 +23,11 @@ def perturb_fn(X_test):
 
 class Explainer:
   ## As the tokens are represented by their feature-vector norm, a zero value implies in no presence of
-  ## a token in a text (sentence). If StandardScaler is used, zero values would be changed, creating a false environment for the explainer
-  def __init__(self, scaler_name = "minmax"):
-    self.scaler = MinMaxScaler() if scaler_name == "minmax" else StandardScaler()
-    self.classifier = svm.SVC(kernel = "linear", C = 1, verbose = False, max_iter = 1000, probability = True, random_state=utils.SEED_VALUE) 
+  ## a token in a text (sentence). If StandardScaler is used instead of MinMaxScaler, zero values would be changed, creating a false environment for the explainer
+  def __init__(self, random_state = None):
+    self.random_state = random_state
+    self.scaler = MinMaxScaler()
+    self.classifier = svm.SVC(kernel = "linear", C = 1, verbose = False, max_iter = 1000, probability = True, random_state=self.random_state) 
     self.label_encoder = LabelEncoder()
     self.explainer = None
     self.exp_space = None
@@ -40,6 +40,9 @@ class Explainer:
 
   ##Strafified sampling with fixed test_samples_per_class
   def train_test_split(self, data, labels, test_samples_per_class):
+    if self.random_state is not None:
+      np.random.seed(self.random_state)
+
     data = np.array(data)
     labels = np.array(labels)
     X_train = []
@@ -124,7 +127,7 @@ class Explainer:
 
 class MyLime(Explainer):
   def create_explainer(self, X_train, X_test, feature_names, label_names):
-    self.explainer = lime_tabular.LimeTabularExplainer(training_data=X_train, feature_names=feature_names, class_names=label_names,  mode='classification', random_state=utils.SEED_VALUE)
+    self.explainer = lime_tabular.LimeTabularExplainer(training_data=X_train, feature_names=feature_names, class_names=label_names,  mode='classification', random_state=self.random_state)
   
   def do_run(self, X_test, y_test, feature_names, label_ids, label_names):
     for sample, label in tqdm.tqdm(zip(X_test, y_test), desc = "|-- LIME explanation" , total = X_test.shape[0], unit= "sample"):
