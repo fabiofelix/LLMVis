@@ -37,7 +37,7 @@ def is_number(value):
   return value.isnumeric() or re.match(number_pattern, value) is not None
 
 def is_ordinal(value):
-  number_pattern = "([0-9]*)(?:st|nd|rd|th)"
+  number_pattern = r"\d+(?:st|nd|rd|th)"
 
   return re.match(number_pattern, value.lower()) is not None
 
