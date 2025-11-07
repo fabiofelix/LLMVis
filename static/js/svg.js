@@ -355,7 +355,7 @@ class SankyDiagram extends MySVG
     const lines = this.group
       .append("g")
       .attr("id", "links")
-      .selectAll(".sunkey-link")
+      .selectAll(".sankey-link")
       .data(links, function(d) { return  d.source.id + "_" + d.source.type + ":" + d.target.id + "_" + d.target.type; });
 
     lines.exit().remove();
@@ -367,7 +367,7 @@ class SankyDiagram extends MySVG
       .attr("stroke-width", function(d) { return d.width; })
       .on("mouseover", function (event, target) 
       {
-        const msg = "<p><span class='font-weight-bold'>Mean abs. score: </span>" + target.value.toFixed(5) + "</p>";
+        const msg = "<p><span class='font-weight-bold'>Avg. abs. score: </span>" + target.value.toFixed(5) + "</p>";
        _this.tooltip.show(msg, [event.clientX, event.clientY]);
 
       })
@@ -379,14 +379,12 @@ class SankyDiagram extends MySVG
     const node = this.group
       .append("g")
       .attr("id", "nodes")
-      .selectAll(".sunkey-node")
+      .selectAll(".sankey-node")
       .data(nodes, function(d){ return d.id + "_" + d.type; })
-
-    // node.exit().remove();
 
     .enter()
       .append("g")
-      .attr("class", "sunkey-node");  
+      .attr("class", "sankey-node");  
 
     node.append("rect")
       .attr("class", function (obj) { return _this.get_node_class(obj) })
@@ -402,13 +400,13 @@ class SankyDiagram extends MySVG
         _this.current_selected_class = [];
         _this.current_selected_token = null;
         
-        const selected = d3.select(event.target).classed("sunkey-node-selected");
-        _this.group.selectAll("rect").classed("sunkey-node-selected", false);
-        _this.group.selectAll("path").classed("sunkey-link-selected", false);
+        const selected = d3.select(event.target).classed("sankey-node-selected");
+        _this.group.selectAll("rect").classed("sankey-node-selected", false);
+        _this.group.selectAll("path").classed("sankey-link-selected", false);
 
         if (!selected)         
         {
-          d3.select(event.target).classed("sunkey-node-selected", true);
+          d3.select(event.target).classed("sankey-node-selected", true);
 
           if(rect_obj_info.type === "token")
           {
@@ -416,7 +414,7 @@ class SankyDiagram extends MySVG
 
             _this.group.selectAll("path").each(function(path, i, array)
             {
-              d3.select(array[i]).classed("sunkey-link-selected", path.target.id === rect_obj_info.id);
+              d3.select(array[i]).classed("sankey-link-selected", path.target.id === rect_obj_info.id);
 
               if(path.target.id === rect_obj_info.id)
               {
@@ -437,7 +435,7 @@ class SankyDiagram extends MySVG
 
             _this.group.selectAll("path").each(function(path, i, array)
             {
-              d3.select(array[i]).classed("sunkey-link-selected", path.source.id === rect_obj_info.id);
+              d3.select(array[i]).classed("sankey-link-selected", path.source.id === rect_obj_info.id);
 
               if(path.source.id === rect_obj_info.id)
               {
@@ -472,7 +470,7 @@ class SankyDiagram extends MySVG
     let token_selected = false;
     this.svg.select("g").selectAll("rect").each(function (obj, i, dom_obj_list) 
     { 
-      token_selected = token_selected || (obj.type == "token" && d3.select(dom_obj_list[i]).classed("sunkey-node-selected"));
+      token_selected = token_selected || (obj.type == "token" && d3.select(dom_obj_list[i]).classed("sankey-node-selected"));
     });
 
     this.svg = this.config_svg();
@@ -516,18 +514,18 @@ class SankyDiagram extends MySVG
         (this.current_selected_class.length > 0 && this.current_selected_class.includes(obj.id)))) ||
        (obj.type == "token" &&
         this.current_selected_token === obj.id)) 
-      class_name = "sunkey-node-selected";
+      class_name = "sankey-node-selected";
 
     return class_name;
   }
   get_link_class(obj)
   {
-    let class_name = "sunkey-link";
+    let class_name = "sankey-link";
 
     if((this.selected_classes.length > 0 && this.selected_classes.includes(obj.source.id)) ||
        (this.current_selected_class.length > 0 && this.current_selected_class.includes(obj.source.id)) ||
        (this.current_selected_token === obj.target.id))
-      class_name += " sunkey-link sunkey-link-selected"; 
+      class_name += " sankey-link sankey-link-selected"; 
 
     return class_name;
   }

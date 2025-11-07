@@ -294,19 +294,19 @@
   Sankey diagram
 ******************/
 
-.sunkey-link 
+.sankey-link 
 {
   fill: none;
   stroke: #000;
   stroke-opacity: .2;
 }
 
-.sunkey-link:hover,.sunkey-link-selected
+.sankey-link:hover,.sankey-link-selected
 {
   stroke-opacity: .5;
 }
 
-.sunkey-node rect
+.sankey-node rect
 {
   fill-opacity: .9;
   shape-rendering: crispEdges;  
@@ -316,18 +316,18 @@
   cursor: pointer; 
 }
 
-.sunkey-node-selected
+.sankey-node-selected
 {
   stroke: #000 !important;
   stroke-width: 2 !important;
 }
 
-.sunkey-node-unselected
+.sankey-node-unselected
 {
   opacity: 0.3;
 }
 
-.sunkey-node text 
+.sankey-node text 
 {
   pointer-events: none;
   text-shadow: 0 1px 0 #fff;
