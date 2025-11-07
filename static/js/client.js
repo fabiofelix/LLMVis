@@ -497,8 +497,8 @@ class WordView extends VisManager
   zipf_law(words)
   {
     let filtered = words;
-    let min_freq = words[0].frequency;
-    let max_freq = words[words.length - 1].frequency;      
+    const min_freq = Math.max(words[0].frequency, 3);
+    const max_freq = words[words.length - 1].frequency;
     let counts = this.counter(filtered)
     
     //The filtering process with less than 4 different frequencies doesn't make sense
@@ -506,16 +506,17 @@ class WordView extends VisManager
     {
       //Remove lower and upper frequencies
       filtered = words.filter(function(item) { return item.frequency > min_freq && item.frequency < max_freq; });
-      
-      min_freq = 0.05;
-      max_freq = 0.95;
-      let max_norm_factor = filtered[filtered.length - 1].frequency;
+      const aux = filtered.map(function(item) { return Math.log10(item.frequency); });
 
-      //Filter out normalized frequencies out [min_freq, max_freq] interval
-      filtered = filtered.filter(function(item) { return (item.frequency / max_norm_factor) > min_freq && (item.frequency / max_norm_factor) < max_freq; });
-    }  
+      const q1 = d3.quantile(aux, 0.25);
+      const q3 = d3.quantile(aux, 0.75);
+      const iqr = q3 - q1;
 
-    return filtered.length > this.max_samples ? filtered.slice(-this.max_samples) : filtered;
+      //Filter out frequencies out [min_freq, max_freq] interval
+      filtered = filtered.filter(function(item) { return item.frequency > Math.max(min_freq, 10**(q1 - 0.1 * iqr)) && item.frequency < Math.min(max_freq, 10**(q3 + 1.5 * iqr)); });
+    }
+
+    return filtered.length > this.max_samples ? filtered.slice(-this.max_samples) : filtered; 
   }    
   show(data, clean=true)
   {

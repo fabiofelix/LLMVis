@@ -40,18 +40,21 @@ if os.path.isdir(main_cache_path):
 sys.path.append(omni_path)
 
 def get_filtered_indices(x, lower_threshold = 1):
+  ## IQR multipliers
+  ## Using an asymmetric IQR due to the token frequency distrubution asymmetry
+  multi_lower, multi_upper = 0.1, 1.5
   x = np.array(x)
 
   ## discards minimum and maximum values
   min_value = np.max([np.min(x), lower_threshold])
   max_value = np.max(x)
-  x_aux     = x[(x > min_value) & (x < max_value)]
+  x_aux     = np.log10(x[(x > min_value) & (x < max_value)])
 
   q1 = np.quantile(x_aux, 0.25)
   q3 = np.quantile(x_aux, 0.75)
   iqr = q3 - q1
 
-  filter = (x > np.max((min_value, q1 - 1.5 * iqr))) & (x < np.min((max_value, q3 + 1.5 * iqr)))
+  filter = (x > np.max((min_value, 10**(q1 - multi_lower * iqr)))) & (x < np.min((max_value, 10**(q3 + multi_upper * iqr))))
 
   return np.where(filter)[0]
 
