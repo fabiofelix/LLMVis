@@ -35,7 +35,12 @@ class MyModelFamily():
     self.create_tokenizer()
     self.create_model()
 
-    self.model = self.model.to("cuda")
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    if device == "cpu":
+      print("MODEL IS ON CPU")
+
+    self.model = self.model.to(device)
     self.model.eval()
 
   def __len__(self):

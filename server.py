@@ -183,11 +183,11 @@ def filter():
           exp = process_explanation(config, obj_path, dataset, model, obj_type, opt, opt_type)
 
   if text is not None and proj is not None:
-    print("|-- Copying text labels to projection")
+    print("|- Copying text labels to projection")
 
     proj["label"] = text["data"]["label"]
   if tkn is not None and exp is not None:
-    print("|-- Copying token info to explanation")
+    print("|- Copying token info to explanation")
 
     for tkn_id in exp["data"]["tokens"]:
       idx = tkn["ids"].index(tkn_id)
