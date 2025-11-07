@@ -59,7 +59,7 @@ def get_filtered_indices(x, lower_threshold = 1):
   return np.where(filter)[0]
 
 ## reads a file with key-value map tokens
-## each mapping patter per line
+## one mapping pattern per line
 ## key-value separated by space or tabulation
 def read_map_tokens(map_path):
   if map_path is not None:
@@ -71,7 +71,8 @@ def read_map_tokens(map_path):
         line = re.sub(r'\n+', "", line)
         line = re.sub(r'\s+', " ", line)
         line = line.strip()
-        key, value = line.split(" ")
+        line_splited = line.split(" ")
+        key, value = (line_splited[0], "") if len(line_splited) == 1 else line_splited
         map_tokens[key] = value
     finally:
       file.close()
