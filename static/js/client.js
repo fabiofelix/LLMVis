@@ -148,8 +148,6 @@ class FilterManager
   {
     this.server_model = null;
     this.server_projection = null;
-    this.server_distance = null;
-    this.server_cluster = null;
     this.server_explanation = null;
   }
   clear_window()
@@ -157,11 +155,11 @@ class FilterManager
     //view_lasso and view_class filter are from projection view
     this.view_lasso = [];
     this.view_class = [];
-    this.view_distance = [];
     this.view_word = [];
-    this.view_cluster = [];    
+    this.view_word_position = [];
     this.view_text = [];
     this.view_explanation = [];
+    this.view_explanation_position = [];
   }
   set_server(filter_type, value)
   {
@@ -206,6 +204,15 @@ class FilterManager
 
     return this;      
   }
+  set_pos(filter_type, value)
+  {
+    if(this.hasOwnProperty("view_" + filter_type + "_position"))
+      this["view_" + filter_type + "_position"] = value;
+    else 
+      throw new Error("Filter has no property [view_" + filter_type + "_position]");  
+
+    return this;      
+  }  
   get_view(filter_type)  
   {
     if(filter_type == "projection")
@@ -219,7 +226,7 @@ class FilterManager
     }  
 
     //================== RETURNS INTERSECTION ==================//
-    const key_list = Object.keys(this).filter(function(value) {  return value.includes("view_")  });
+    const key_list = Object.keys(this).filter(function(value) {  return value.includes("view_") && !value.includes("_position") });
     let aux_ids = this[key_list[0]];
 
     for(let k = 1; k < key_list.length; k++)
@@ -234,9 +241,37 @@ class FilterManager
 
     return aux_ids;    
   }
+  get_pos(filter_intersection)
+  {
+    const _this = this;
+    let filter_key_list = Object.keys(this)
+      .filter(function(key){ return key.includes("view_") && !key.includes("_position") && _this.hasOwnProperty(key + "_position"); })
+    let positions = [];
+
+    for(let filter of filter_intersection)
+    {
+      let aux_pos = [];
+
+      for(let key of filter_key_list)
+      {
+        const indicesOf = this[key]
+          .map(function(value, index){ return value === filter ? index : -1 })
+          .filter(function(index) { return index !== -1 });
+
+        for(let idx of indicesOf)
+        {
+          aux_pos.push(this[key + "_position"][idx])
+        }  
+      }
+
+      positions.push(aux_pos);
+    }
+
+    return positions;
+  }
   count(except)
   {
-    const key_list = Object.keys(this).filter(function(value) {  return value.includes("view_")  });
+    const key_list = Object.keys(this).filter(function(value) {  return value.includes("view_") && !value.includes("_position")  });
     let count = 0;
 
     for(let key of key_list)
@@ -458,20 +493,16 @@ class WordView extends VisManager
   }  
   drawer_callback(data, position)
   {
-    const data_filtered = FILTER.set_view(this.filter_type, data).get_view();
+    const data_filtered = FILTER.set_view(this.filter_type, data).set_pos(this.filter_type, position).get_view();
+    const position_filtered = FILTER.get_pos(data_filtered);
     let text_ids = {};
-
-    for(let i = 0; i < data.length; i++)
-    {
-      if(data_filtered.includes(data[i]) && position[i] !== null)
-      {
-        if(!Object.keys(text_ids).includes(data[i])) 
-          text_ids[data[i]] = [];
-
-        text_ids[data[i]].push( position[i] );
-      } 
-    }    
     
+    if(data_filtered.length > 0)
+    {
+      for(let i = 0; i < data_filtered.length; i++)
+        text_ids[data_filtered[i]] = position_filtered[i];      
+    }
+
     PROJECTION_VIEW.select_items(Object.keys(text_ids).length == 0 ? data_filtered : Object.keys(text_ids));
     let text_label = [];
 
@@ -611,22 +642,15 @@ class Explanation extends VisManager
   }
   drawer_callback(data, position)
   {
-    let data_filtered = data
-      .filter(function(value, index, array) { return array.indexOf(value) === index; });
-    data_filtered = FILTER.set_view(this.filter_type, data_filtered).get_view();
+    const data_filtered = FILTER.set_view(this.filter_type, data).set_pos(this.filter_type, position).get_view();
+    const position_filtered = FILTER.get_pos(data_filtered);
     let text_ids = {};
 
-    for(let i = 0; i < data.length; i++)
-    {
-      if(data_filtered.includes(data[i]))
-      {
-        if(!Object.keys(text_ids).includes(data[i])) 
-          text_ids[data[i]] = [];
-
-        if(position.length > 0)
-          text_ids[data[i]].push( position[i] );
-      } 
-    }  
+    if(data_filtered.length > 0)
+    {  
+      for(let i = 0; i < data_filtered.length; i++)
+        text_ids[data_filtered[i]] = position_filtered[i];      
+    }
     
     PROJECTION_VIEW.select_items(Object.keys(text_ids) == 0 ? data_filtered : Object.keys(text_ids));
     WORD_VIEW.select_items(Object.keys(text_ids) == 0 ? data_filtered : Object.keys(text_ids));
