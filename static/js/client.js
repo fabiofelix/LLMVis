@@ -505,15 +505,20 @@ class WordView extends VisManager
     if(min_freq !== max_freq && Object.keys(counts).length > 3)
     {
       //Remove lower and upper frequencies
-      filtered = words.filter(function(item) { return item.frequency > min_freq && item.frequency < max_freq; });
-      const aux = filtered.map(function(item) { return Math.log10(item.frequency); });
+      let filtered_aux = words.filter(function(item) { return item.frequency > min_freq && item.frequency < max_freq; });
+      counts = this.counter(filtered_aux)
 
-      const q1 = d3.quantile(aux, 0.25);
-      const q3 = d3.quantile(aux, 0.75);
-      const iqr = q3 - q1;
+      if (Object.keys(counts).length > 3)
+      {  
+        const aux = filtered_aux.map(function(item) { return Math.log10(item.frequency); });
 
-      //Filter out frequencies out [min_freq, max_freq] interval
-      filtered = filtered.filter(function(item) { return item.frequency > Math.max(min_freq, 10**(q1 - 0.1 * iqr)) && item.frequency < Math.min(max_freq, 10**(q3 + 1.5 * iqr)); });
+        const q1 = d3.quantile(aux, 0.25);
+        const q3 = d3.quantile(aux, 0.75);
+        const iqr = q3 - q1;
+
+        //Filter out frequencies out [min_freq, max_freq] interval
+        filtered = filtered_aux.filter(function(item) { return item.frequency > Math.max(min_freq, 10**(q1 - 0.1 * iqr)) && item.frequency < Math.min(max_freq, 10**(q3 + 1.5 * iqr)); });
+      }
     }
 
     return filtered.length > this.max_samples ? filtered.slice(-this.max_samples) : filtered; 
