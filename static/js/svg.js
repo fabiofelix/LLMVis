@@ -331,7 +331,7 @@ class WordCloud extends MySVG
   }    
 }
 
-class SankyDiagram extends MySVG 
+class SankeyDiagram extends MySVG 
 {
   constructor(wrapper, tooltip) 
   {

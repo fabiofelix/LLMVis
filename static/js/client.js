@@ -631,7 +631,7 @@ class Explanation extends VisManager
     super(div_list_id, header_id, chart_id, info_id);
     this.filter_type = "explanation";
     this.source_type = "class";
-    this.drawer = new SankyDiagram(chart_id, TOOLTIP);
+    this.drawer = new SankeyDiagram(chart_id, TOOLTIP);
     this.classes = null;
     this.data = null;
     this.name = null;
@@ -757,7 +757,7 @@ class Explanation extends VisManager
         cls.fixedValue = class_min_value / 2;
     });
 
-    this.set_header("Class - " + node_objects.length + " predicted classes - " + this.name);
+    this.set_header("Predicted - " + node_objects.length + (node_objects.length < 2 ? " class" : " classes") +  " on test set - " + this.name);
 
     return {nodes: node_objects.concat(token), links: links, sentences: PROJECTION_VIEW.sentences};
   }   
@@ -769,7 +769,7 @@ class Explanation extends VisManager
     this.data = objs.data
     this.name = objs.name;
 
-    this.set_header("Class - " + this.classes.length + " predicted classes - " + this.name);
+    this.set_header("Predicted - " + this.classes.length + (this.classes.length < 2 ? " class" : " classes") + " on test set - " + this.name);
     
     this.drawer.draw(this.process_data(), {}, LABEL_COLOR_PALETTE);
   }
@@ -1122,12 +1122,12 @@ class PaginateText
       this.call_back.paginate(cols[idx], []);
       let hidden = false;
 
-      //Selection from: scatterplot and heatmap
+      //Selection from: scatterplot
       if(this.selected_text instanceof Array)
       {
         hidden = this.selected_text.length > 0 && !this.selected_text.includes(cols[idx].dataset.id);
       }
-      //Selection from: treemap
+      //Selection from: wordcloud and sankey
       else if(ids.length > 0)
       {
         hidden = !ids.includes(cols[idx].dataset.id);

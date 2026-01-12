@@ -55,9 +55,12 @@
   font-weight: bold;
 }
 
-.chart-area
+@media (min-width:1367px)
 {
-  min-height: 450px;
+  .chart-area
+  {
+    height: 28.125rem !important;  
+  }  
 }
 
 /******************
