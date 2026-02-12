@@ -84,10 +84,17 @@ def save_explanation(args, text_token, tkn_ids, stn_ids, labels, pattern_file):
   print("|-- Using {:10d} tokens".format(len(tkn_ids)))
 
   for key, txt_tokens in text_token.items():
-    for explain_name, explain_class in [("LIME", MyLime), ("SHAP", MyShap)]:
-      explainer = explain_class(random_state=utils.SEED_VALUE)
-      filtered_text_token = np.array(txt_tokens)[:, filter]
+    txt_tokens = np.array(txt_tokens)
+    sh_original = silhouette_score(txt_tokens, labels)
 
+    for explain_name, explain_class in [("LIME", MyLime), ("SHAP", MyShap)]:
+      file_path = pattern_file.format(key) + "_class_explanation-{}.npz".format(explain_name)
+      file_path = os.path.join(args.output_path, file_path)
+
+      filtered_text_token = txt_tokens[:, filter]
+      sh_filtered = silhouette_score(filtered_text_token, labels)
+
+      explainer = explain_class(random_state=utils.SEED_VALUE)
       exp, class_eval = explainer.run(filtered_text_token, labels, tkn_ids)
       predicted_label = exp.predicted_label.unique()
       exp = exp.set_index("predicted_label")
@@ -110,17 +117,16 @@ def save_explanation(args, text_token, tkn_ids, stn_ids, labels, pattern_file):
 
       exp_abs_mean = pd.DataFrame(exp_abs_mean) 
 
-      file_path = pattern_file.format(key) + "_class_explanation-{}.npz".format(explain_name)
-      file_path = os.path.join(args.output_path, file_path)
-
       np.savez(file_path, 
-               class_ids = exp_abs_mean.predicted_label.to_numpy(), 
-               token_ids = tkn_ids, 
-               text_ids = stn_ids, 
-               explanation=[ row[1:].to_numpy()  for _, row in exp_abs_mean.iterrows() ],
-               class_report = class_report,
-               exp_report = exp_report
-               )                    
+              class_ids = exp_abs_mean.predicted_label.to_numpy(), 
+              token_ids = tkn_ids, 
+              text_ids = stn_ids, 
+              explanation=[ row[1:].to_numpy()  for _, row in exp_abs_mean.iterrows() ],
+              class_report = class_report,
+              exp_report = exp_report,
+              silhouette_score=sh_filtered,
+              silhouette_score_original=sh_original,
+              )                    
 
 ## projection: <dataset>-<number_samples>_<model>-b<model_block>_sentence_proj-<projection_name>.npz
 def save_projection(args, text_feat, sentence_name, sentence_label, pattern_file, update = False):
@@ -128,8 +134,11 @@ def save_projection(args, text_feat, sentence_name, sentence_label, pattern_file
 
   for key, txt_feat in text_feat.items():    
     sentence_feat = np.array(txt_feat)
+    sh_original = silhouette_score(sentence_feat, sentence_label)
 
     for proj_name in ["PCA", "tSNE", "UMAP"]:
+      file_path = pattern_file.format(key) + "_sentence_proj-{}.npz".format(proj_name)
+      file_path = os.path.join(args.output_path, file_path)
       projection = PCA(n_components = 2, random_state = utils.SEED_VALUE)    
 
       if proj_name == "tSNE":
@@ -140,10 +149,7 @@ def save_projection(args, text_feat, sentence_name, sentence_label, pattern_file
       vis_proj = projection.fit_transform(sentence_feat)
       sh = silhouette_score(vis_proj, sentence_label)
 
-      file_path = pattern_file.format(key) + "_sentence_proj-{}.npz".format(proj_name)
-      file_path = os.path.join(args.output_path, file_path)
-
-      np.savez(file_path, text_ids = sentence_name, projection = vis_proj, silhouette_score=sh)
+      np.savez(file_path, text_ids = sentence_name, projection = vis_proj, silhouette_score=sh, silhouette_score_original=sh_original)
 
 ## text: <dataset>-<number_samples>_text.npz
 def save_text(args, text_data, pattern_file_data, update = False):
