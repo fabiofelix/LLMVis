@@ -5,7 +5,7 @@ from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer, PorterStemmer
 
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
-from sklearn.decomposition import LatentDirichletAllocation, NMF
+from sklearn.decomposition import LatentDirichletAllocation, NMF, TruncatedSVD
 
 nltk.data.path.append(os.path.join(utils.main_cache_path, "llm", "nltk_data"))
 nltk.download("punkt_tab", download_dir = os.path.join(utils.main_cache_path, "llm", "nltk_data"))
@@ -119,10 +119,11 @@ def nltk_extract_entity(text):
   return tags, entity_list
 
 class TopicModeling:
-  def __init__(self):
+  def __init__(self, n_topics = 5, words_per_topic = 3):
     self.vectorizer = None
     self.model = None
-    self.words_per_topic = 3
+    self.words_per_topic = words_per_topic
+    self.n_topics = n_topics
 
   def preprocess_txt(self, texts, lem = True, stem = False, remove_stop_words = True):
     wnl = WordNetLemmatizer()
@@ -162,7 +163,7 @@ class TopicModeling:
     #components has one row per topic and columns (words) with probabilities
     #vectorizer.get_feature_names_out() has the real words
     #argsort returns the indices in the increasing order of the values
-    topic_words = [ [ self.vectorizer.get_feature_names_out()[idx] for idx in topic.argsort()[-self.words_per_topic:] ] for topic in components ] 
+    topic_words = [ [ self.vectorizer.get_feature_names_out()[idx] for idx in reversed(topic.argsort()[-self.words_per_topic:]) ] for topic in components ] 
     topic_words = [ "-".join(tw) for tw in topic_words]
 
     #topics has one row per text processed and columns (topics) with probabilities
@@ -176,13 +177,19 @@ class TopicModeling:
     return self.get_topic_words(components = self.model.components_, topics = topics)
 
 class MyLDA(TopicModeling):
-  def __init__(self):
-    super().__init__()
+  def __init__(self, n_topics = 5, words_per_topic = 3):
+    super().__init__(n_topics=n_topics, words_per_topic=words_per_topic)
     self.vectorizer = CountVectorizer(min_df = 0.05, max_df = 0.95, max_features = 1000)
-    self.model = LatentDirichletAllocation(n_components=5, max_iter=5, learning_method="online", learning_offset=50.0, random_state=utils.SEED_VALUE)
+    self.model = LatentDirichletAllocation(n_components=self.n_topics, max_iter=5, learning_method="online", learning_offset=50.0, random_state=utils.SEED_VALUE)
 
 class MyNMF(TopicModeling):  
-  def __init__(self):
-    super().__init__()
+  def __init__(self, n_topics = 5, words_per_topic = 3):
+    super().__init__(n_topics=n_topics, words_per_topic=words_per_topic)
     self.vectorizer = TfidfVectorizer(min_df = 0.05, max_df = 0.95, max_features = 1000)
-    self.model = NMF(n_components=5, init="nndsvda", random_state=utils.SEED_VALUE)
+    self.model = NMF(n_components=self.n_topics, init="nndsvda", random_state=utils.SEED_VALUE)
+
+class MySVD(TopicModeling):  
+  def __init__(self, n_topics = 5, words_per_topic = 3):
+    super().__init__(n_topics=n_topics, words_per_topic=words_per_topic)
+    self.vectorizer = TfidfVectorizer(min_df = 0.05, max_df = 0.95, max_features = 1000)
+    self.model = TruncatedSVD(n_components=self.n_topics, n_iter=5, random_state=utils.SEED_VALUE)

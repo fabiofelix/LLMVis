@@ -126,10 +126,10 @@ class PaperAbstract(TextDataset):
 class TinyStories_V2(TextDataset):
   def __init__(self, path = None, map_tokens = None):
     super().__init__(path, map_tokens)
-    self.topic = MyLDA()
+    self.topic = MyLDA(n_topics=3)
 
   def __str__(self):
-    return "TinyStories-v2" 
+    return "TinyStories-v2-topic3" 
 
   def get_data(self, n_samples = 100, max_text_length = None):  
     validation = os.path.join(self.data_path, "TinyStoriesV2-GPT4-valid.txt")
@@ -209,14 +209,15 @@ class BBCNews(TextDataset):
 # http://i.stanford.edu/~julian/pdfs/www13.pdf
 class AmazonFoodReview(TextDataset):
   def __str__(self):
-    return "Amazon-Fine-Food-Reviews"
+    return "Amazon-Fine-Food-Reviews-binary-v2"
 
   def get_data(self, n_samples = 100, max_text_length = None):
     data = pd.read_csv(self.data_path)
     filename = [ "AmazonFoodReviews_{}".format(id) for id in data["Id"].to_numpy() ]
 
-    texts = pd.DataFrame({"name": filename, "text": data["Text"], "processed_text": None, "label": data["Score"], "topic": None})
+    data.loc[data.Score < 3, "new_score"] = "bad"
+    data.loc[data.Score >= 3, "new_score"] = "good"    
+    texts = pd.DataFrame({"name": filename, "text": data["Text"], "processed_text": None, "label": data["new_score"], "topic": None})
     texts = self.sampling(texts, texts["label"], n_samples)
 
     return self.format(texts[["name", "text", "processed_text", "label", "topic"]])    
-
