@@ -95,7 +95,7 @@ def save_explanation(args, text_token, tkn_ids, stn_ids, labels, pattern_file):
       sh_filtered = silhouette_score(filtered_text_token, labels)
 
       explainer = explain_class(random_state=utils.SEED_VALUE)
-      exp, class_eval = explainer.run(filtered_text_token, labels, tkn_ids)
+      exp, class_eval = explainer.run(filtered_text_token, labels, tkn_ids, test_samples_per_class = 10 if args.dataset in [datasets.DATASET.AMAZONREVIEW, datasets.DATASET.TINYSTORIESV2] else 5)
       predicted_label = exp.predicted_label.unique()
       exp = exp.set_index("predicted_label")
 
