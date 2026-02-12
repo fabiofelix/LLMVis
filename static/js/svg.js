@@ -7,6 +7,10 @@ class MySVG
     this.svg = this.config_svg();
     this.call_back = { start: function () { }, draw: function () { }, end: function () { } };
     this.tooltip = tooltip;
+    this.clear();
+  }
+  clear()
+  {
     this.selected_items = [];
   }
   on(type, call_back) 
@@ -43,10 +47,6 @@ class MySVG
   select(data, redraw = true) 
   {
     throw new Error('You have to implement the method select!');
-  }
-  clear()
-  {
-    throw new Error('You have to implement the method clear!');
   }
 }
 
@@ -107,9 +107,14 @@ class ScatterPlot extends MySVG
     super(wrapper, tooltip);
     this.legend = null;
     this.circle_size = 3;
+    this.clear();
+  }
+  clear()
+  {
     this.current_selected_class = [];
     this.current_lasso_selection = [];
-  }
+    super.clear();
+  }    
   config_legend() 
   {
     if(this.legend === null)
@@ -159,7 +164,7 @@ class ScatterPlot extends MySVG
         {  
           _this.current_lasso_selection = ids
           _this.call_back.end(ids, "lasso");
-        }  
+        }
       });
     this.svg.call(lassoBrush);
     this.draw_legend(label_list, palette);
@@ -318,10 +323,11 @@ class WordCloud extends MySVG
   clear()
   {
     const _this = this;
+    _this.current_selected_word = null;
+    
     this.svg.selectAll(".word-selected").each(function(text, i, array) 
     { 
       d3.select(array[i]).classed("word-selected", false);
-      _this.current_selected_word = null;
     });
     this.call_back.end([], []); 
   }
@@ -338,13 +344,16 @@ class SankeyDiagram extends MySVG
     super(wrapper, tooltip);
     this.group = null;
     this.token_info = new TokenInfo();
-    this.selected_classes = [];
-    this.current_selected_class = [];
-    this.current_selected_token = null;
     this._total_links = 5;
     this.token_node_color = "#91b691";
     this.margin = {top: 5, bottom: 5, left: 5, right: 5, text_offset: 6};
+    this.clear();
   }
+  clear()
+  {
+    this.current_selected_class = [];
+    this.current_selected_token = null;    
+  }  
   get total_links()
   {
     return this._total_links;
@@ -510,8 +519,7 @@ class SankeyDiagram extends MySVG
     let class_name = "";
 
     if((obj.type === "class" && 
-       ((this.selected_classes.length > 0 && this.selected_classes.includes(obj.id)) ||
-        (this.current_selected_class.length > 0 && this.current_selected_class.includes(obj.id)))) ||
+       ((this.current_selected_class.length > 0 && this.current_selected_class.includes(obj.id)))) ||
        (obj.type == "token" &&
         this.current_selected_token === obj.id)) 
       class_name = "sankey-node-selected";
@@ -522,8 +530,7 @@ class SankeyDiagram extends MySVG
   {
     let class_name = "sankey-link";
 
-    if((this.selected_classes.length > 0 && this.selected_classes.includes(obj.source.id)) ||
-       (this.current_selected_class.length > 0 && this.current_selected_class.includes(obj.source.id)) ||
+    if((this.current_selected_class.length > 0 && this.current_selected_class.includes(obj.source.id)) ||
        (this.current_selected_token === obj.target.id))
       class_name += " sankey-link sankey-link-selected"; 
 

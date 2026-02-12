@@ -352,7 +352,9 @@ class VisManager
   {
     event.preventDefault();
     FILTER.set_server(this.filter_type, event.target.innerHTML);
-    FILTER.clear_window();
+
+    if(this.filter_type == "model")
+      FILTER.clear_window();
 
     const URL = new Request("filter", 
       {
@@ -370,10 +372,14 @@ class VisManager
     });  
 
   }  
-  show(data, clean=true)
+  show(data, clear=false)
   { 
     throw new Error('You have to implement the method show!');
   }
+  clear()
+  {
+    this.drawer.clear();
+  }  
   drawer_callback(data)
   {
     throw new Error('You have to implement the method drawer_callback!');
@@ -385,7 +391,7 @@ class VisManager
   select_items(items, redraw = true)    
   {
     this.drawer.select(FILTER.count(this.filter_type) === 0 ? [] : items, redraw);
-  }  
+  }
 }
 
 class Model extends VisManager
@@ -395,7 +401,7 @@ class Model extends VisManager
     super(div_list_id, header_id, chart_id, info_id);
     this.filter_type = "model";
   }
-  show(data)
+  show(data, clear=false)
   {
     this.set_header("LLM embedding visualization - " + data.models[0] );
     
@@ -403,11 +409,11 @@ class Model extends VisManager
     EXPLANATION_VIEW.create_list(data.explanations);
     
     //Projection have to come before the others because of the LABEL_COLOR_PALETTE creation
-    PROJECTION_VIEW.show(data);
-    WORD_VIEW.show(data);
-    EXPLANATION_VIEW.show(data);
-    TEXT_VIEW.show(data);
-  }  
+    PROJECTION_VIEW.show(data, true);
+    WORD_VIEW.show(data, true);
+    EXPLANATION_VIEW.show(data, true);
+    TEXT_VIEW.show(data, true);
+  }
 }
 
 class Projection extends VisManager
@@ -421,8 +427,13 @@ class Projection extends VisManager
     this.drawer = new ScatterPlot(chart_id, TOOLTIP);
     const _this = this;
     this.drawer.on("end", function(data, second_filter_type){ return _this.drawer_callback(data, second_filter_type); });
-    this.sentences_ = null;
+    this.clear();
   }
+  clear()
+  {
+    this.sentences_ = []; 
+    super.clear();
+  }  
   get sentences()
   {
     return this.sentences_;
@@ -436,16 +447,21 @@ class Projection extends VisManager
     EXPLANATION_VIEW.select_items(text_label);
     TEXT_VIEW.select_items(text_ids);
 
-    return text_ids;
+    if (second_filter_type == "class" && FILTER.count("lasso") == 0)
+      return [];
+    else
+      return text_ids;
   }
-  show(data, clean=true)
+  show(data, clear=false)
   {
     const objs = this.extract_data(data.objs);
     this.set_header("Text - " + objs.data.length + " samples - " + objs.name + " - sh: " + objs.silhouette.toFixed(4) );
     const sum = {min_x: Number.MAX_VALUE, min_y: Number.MAX_VALUE, max_x: Number.MIN_VALUE, max_y: Number.MIN_VALUE};
     const unique_label = [];
-    const _this = this; 
-    this.sentences_ = [];
+    const _this = this;
+    
+    if(clear)
+      this.clear();
 
     const formated_objs = objs.data.map(function(value, idx)
     {
@@ -478,7 +494,7 @@ class WordView extends VisManager
     this.filter_type = "word";
     this.source_type = "token";    
     this.drawer = new WordCloud(chart_id, TOOLTIP);
-    this.words = null;
+    this.words = [];
     this.max_samples = 50;
     const _this = this;
     this.drawer.on("end", function(data, position){ _this.drawer_callback(data, position); });
@@ -488,9 +504,9 @@ class WordView extends VisManager
   clear_all(event)
   {
     event.preventDefault();
-    this.drawer.clear();
+    this.clear();
     this.set_header("Token - " + this.max_samples + " samples more frequent");    
-  }  
+  }
   drawer_callback(data, position)
   {
     const data_filtered = FILTER.set_view(this.filter_type, data).set_pos(this.filter_type, position).get_view();
@@ -554,7 +570,7 @@ class WordView extends VisManager
 
     return filtered.length > this.max_samples ? filtered.slice(-this.max_samples) : filtered; 
   }    
-  show(data, clean=true)
+  show(data, clear=false)
   {
     const objs = this.extract_data(data.objs);
     this.words = objs.ids
@@ -635,11 +651,20 @@ class Explanation extends VisManager
     this.classes = null;
     this.data = null;
     this.name = null;
-    this.selected_classes = [];
-    this.selected_sentence = [];
     const _this = this;
     this.drawer.on("end", function(data, position){ _this.drawer_callback(data, position); });    
+    this.clear();
   }
+  clear_list()
+  {
+    this.selected_classes = [];
+    this.selected_sentence = [];
+  }
+  clear()
+  {
+    this.clear_list();
+    super.clear();
+  }      
   drawer_callback(data, position)
   {
     const data_filtered = FILTER.set_view(this.filter_type, data).set_pos(this.filter_type, position).get_view();
@@ -761,24 +786,29 @@ class Explanation extends VisManager
 
     return {nodes: node_objects.concat(token), links: links, sentences: PROJECTION_VIEW.sentences};
   }   
-  show(data, clean=true)
+  show(data, clear=false)
   { 
     const objs = this.extract_data(data.objs);
 
-    this.classes = objs.ids;
-    this.data = objs.data
-    this.name = objs.name;
+    if(objs !== null)
+    {
+      if(clear)
+        this.clear();
 
-    this.set_header("Predicted - " + this.classes.length + (this.classes.length < 2 ? " class" : " classes") + " on test set - " + this.name);
-    
-    this.drawer.draw(this.process_data(), {}, LABEL_COLOR_PALETTE);
+      this.classes = objs.ids;
+      this.data = objs.data
+      this.name = objs.name;
+
+      this.set_header("Predicted - " + this.classes.length + (this.classes.length < 2 ? " class" : " classes") + " on test set - " + this.name);
+
+      this.drawer.draw(this.process_data(), {}, LABEL_COLOR_PALETTE);
+    }
   }
   select_items(items, redraw = true)    
   {
     const _this = this;
-    this.selected_classes = [];
-    this.selected_sentence = [];
-
+    this.clear_list();
+    
     if(FILTER.count(this.filter_type) != 0)
     {
       items.forEach(function(obj)
@@ -790,7 +820,8 @@ class Explanation extends VisManager
       });
     }
     
-    this.drawer.draw(this.process_data(), {}, LABEL_COLOR_PALETTE);
+    if(this.data !== null)
+      this.drawer.draw(this.process_data(), {}, LABEL_COLOR_PALETTE);
   }  
   get_info()
   {
@@ -887,8 +918,11 @@ class TextView extends VisManager
 
     document.getElementById("clear_text_selection").addEventListener("click", function(event){ _this.clear_all(event) }); 
   }
-  show(data, clean=true)
+  show(data, clear=false)
   { 
+    if(clear)
+      this.paginator.clear();
+
     const _this = this;
     this.objs  = this.extract_data(data.objs);    
     this.label = this.objs.data.label;
@@ -1058,12 +1092,15 @@ class PaginateText
     this.page_position = document.getElementById(pos_id);
 
     this.inc = 10;
+    this.clear();
+    this.set_event();
+  }
+  clear()
+  {
     this.first_idx = 0;
     this.count_text = 0;
     this.selected_text = [];
     this.count_selected_text = 0; 
-
-    this.set_event();
   }
   on(type, call_back) 
   {
