@@ -300,7 +300,6 @@ class VisManager
     this.div_chart = document.getElementById(chart_id);
     this.info_button = info_id === undefined ? null : document.getElementById(info_id);
     this.filter_type = null;
-    this.source_type = null;
     this.drawer = null;
 
     if(this.info_button !== null)
@@ -359,7 +358,7 @@ class VisManager
     const URL = new Request("filter", 
       {
         method: "POST",
-        body: JSON.stringify({type: this.filter_type, source: this.source_type, config: FILTER.get_server()})
+        body: JSON.stringify({type: this.filter_type, config: FILTER.get_server()})
       });    
       
     LOADER_CONTROL.begin();
@@ -403,7 +402,7 @@ class Model extends VisManager
   }
   show(data, clear=false)
   {
-    this.set_header("LLM embedding visualization - " + data.models[0] );
+    this.set_header("LLM embedding explanation - " + data.models[0] );
     
     PROJECTION_VIEW.create_list(data.projections);
     EXPLANATION_VIEW.create_list(data.explanations);
@@ -422,8 +421,6 @@ class Projection extends VisManager
   {
     super(div_list_id, header_id, chart_id, info_id);
     this.filter_type = "projection";
-    this.secondary_filter_type = ["lasso", "class"];
-    this.source_type = "sentence";
     this.drawer = new ScatterPlot(chart_id, TOOLTIP);
     const _this = this;
     this.drawer.on("end", function(data, second_filter_type){ return _this.drawer_callback(data, second_filter_type); });
@@ -455,7 +452,7 @@ class Projection extends VisManager
   show(data, clear=false)
   {
     const objs = this.extract_data(data.objs);
-    this.set_header("Text - " + objs.data.length + " samples - " + objs.name + " - sh: " + objs.silhouette.toFixed(4) );
+    this.set_header("Text - " + objs.data.length + " samples - " + objs.name + " - sh.: " + objs.silhouette.toFixed(4) );
     const sum = {min_x: Number.MAX_VALUE, min_y: Number.MAX_VALUE, max_x: Number.MIN_VALUE, max_y: Number.MIN_VALUE};
     const unique_label = [];
     const _this = this;
@@ -492,7 +489,6 @@ class WordView extends VisManager
   {
     super(div_list_id, header_id, chart_id, info_id);
     this.filter_type = "word";
-    this.source_type = "token";    
     this.drawer = new WordCloud(chart_id, TOOLTIP);
     this.words = [];
     this.max_samples = 50;
@@ -646,7 +642,6 @@ class Explanation extends VisManager
   {
     super(div_list_id, header_id, chart_id, info_id);
     this.filter_type = "explanation";
-    this.source_type = "class";
     this.drawer = new SankeyDiagram(chart_id, TOOLTIP);
     this.classes = null;
     this.data = null;
@@ -968,7 +963,8 @@ class TextView extends VisManager
     }
 
     this.paginator.manage_control();
-    this.set_header("Text - " + this.paginator.get_count_text() + " samples");
+    let count_text = this.paginator.count_text;
+    this.set_header("Text - " + count_text + (count_text < 2 ? " sample" : " samples"));
   }
   clear_all(event)
   {
@@ -985,7 +981,9 @@ class TextView extends VisManager
       EXPLANATION_VIEW.select_items(text_id);    
     });
     
-    this.set_header("Text - " + this.paginator.get_count_text() + " samples");
+    this.clear();
+    let count_text = this.paginator.count_text;
+    this.set_header("Text - " + count_text + (count_text < 2 ? " sample" : " samples"));
   }
   drawer_callback(event)
   {
@@ -1040,7 +1038,8 @@ class TextView extends VisManager
     this.paginator.set_selected_text(FILTER.count(this.filter_type) === 0 ? [] : items);
     this.paginator.paginate_text();
     this.paginator.manage_control();
-    this.set_header("Text - " + this.paginator.get_count_text() + " samples");
+    let count_text = this.paginator.count_text;
+    this.set_header("Text - " + count_text + (count_text < 2 ? " sample" : " samples"));    
   }      
 }
 
@@ -1098,7 +1097,7 @@ class PaginateText
   clear()
   {
     this.first_idx = 0;
-    this.count_text = 0;
+    this.count_text_ = 0;
     this.selected_text = [];
     this.count_selected_text = 0; 
   }
@@ -1112,10 +1111,14 @@ class PaginateText
       this.call_back[type] = call_back;
 
     return this;
-  }  
-  get_count_text()
+  }
+  set count_text(count)
   {
-    return this.count_selected_text > 0 ? this.count_selected_text : this.count_text;
+    this.count_text_ = count;
+  }
+  get count_text()
+  {
+    return this.count_selected_text > 0 ? this.count_selected_text : this.count_text_;
   }
   bind_page_click_event(element, call_back)
   {
@@ -1139,8 +1142,8 @@ class PaginateText
     this.bind_page_click_event(this.next_page, function(){  _this.first_idx += _this.inc; });
     this.bind_page_click_event(this.last_page, function()
     { 
-      const aux_idx = Math.floor(_this.get_count_text() / _this.inc) * _this.inc;
-      _this.first_idx = aux_idx == _this.get_count_text() ? _this.get_count_text() - _this.inc : aux_idx;
+      const aux_idx = Math.floor(_this.count_text / _this.inc) * _this.inc;
+      _this.first_idx = aux_idx == _this.count_text ? _this.count_text - _this.inc : aux_idx;
     });
   }
   set_selected_text(items)
@@ -1191,10 +1194,10 @@ class PaginateText
   }
   manage_control()
   {
-    this.page_position.innerHTML = (this.first_idx + 1) + "-" + Math.min(this.first_idx + this.inc, this.get_count_text());
+    this.page_position.innerHTML = (this.first_idx + 1) + "-" + Math.min(this.first_idx + this.inc, this.count_text);
 
     this.toggle_controls([this.first_page, this.previous_page], this.first_idx === 0);
-    this.toggle_controls([this.next_page, this.last_page], this.first_idx + this.inc >= this.get_count_text());
+    this.toggle_controls([this.next_page, this.last_page], this.first_idx + this.inc >= this.count_text);
   }
   toggle_controls(controls, disabled) 
   {

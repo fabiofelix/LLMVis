@@ -54,7 +54,7 @@ def load_config():
   return config
 
 def process_sentence(config, obj_path, dataset, model, obj_type, opt, opt_type):
-  print("|- Loading sentence projection")
+  print("|- Loading text projection")
   data = np.load(obj_path, allow_pickle=True)
   config["objs"].append(
     {
@@ -197,7 +197,7 @@ def filter():
       exp["data"]["postag"].append(tkn["data"]["postag"][idx])
       exp["data"]["named_entity"].append(tkn["data"]["named_entity"][idx])
 
-  print("|- Sending config")
+  print("|- Sending config to client")
 
   return config
 

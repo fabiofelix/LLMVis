@@ -80,112 +80,11 @@
   fill-opacity:.15 ;
 }
 
-/* .lasso .loop_close 
-{
-  stroke-dasharray: 4,4;
-} */
-
 .lasso .origin 
 {
   fill-opacity:0;
 }
 
-/* .unselectedscatter 
-{
-  opacity: 0.05;
-}   */
-
-/******************
-  Force directed graph
-******************/
-
-.force-link
-{
-  stroke: #999;
-  stroke-opacity: 0.6;
-  stroke-width: 1.0;
-}
-
-.force-root
-{
-  fill: #65cddc;
-}
-
-.force-cluster
-{
-  fill:  #2aabbc;
-}
-
-.force-leaf
-{
-  /* fill: #378793; */
-  fill: #379337;  
-}
-
-.force-circle
-{
-  stroke: #fff;
-  stroke-width: 1;
-  cursor: pointer;
-}
-
-.force-selected
-{
-  stroke: black;
-  stroke-width: 2;
-}
-
-/******************
-  Edge Bundling
-******************/
-
-.bundling-link
-{
-  fill: none;
-  stroke: black;
-}
-
-.bundling-circle
-{
-  fill:  #69a3b2;
-  stroke: black;
-  opacity: .2;
-}
-
-.bundling-select
-{
-  fill:  none;
-  stroke: #69a3b2;
-  opacity: .5;
-  stroke-width: 5;
-}
-
-/******************
-  Heatmap
-******************/
-
-.heatmap-svg
-{
-  position: absolute;
-  left: 0;
-  top: 0;
-  z-index: 2;
-}
-
-.heatmap-select
-{
-  fill:  #69a3b2;
-  /* stroke: #69a3b2; */
-  stroke: black;  
-  opacity: .5;
-  stroke-width: 2;
-  cursor: pointer;
-}
-
-.heatmap-dragging
-{
-  cursor: move;
-} 
 
 /******************
   Projection
@@ -231,43 +130,6 @@
 {
   background-color: #858796;
   color: #fff;
-}
-
-/******************
-  Treemap
-******************/
-
-.treemap-rect
-{
-  stroke: #fff;
-  stroke-width: 1;
-  cursor: pointer;
-}
-
-.treemap-cluster
-{
-  fill: #17a2b8;
-}
-
-.treemap-leaf
-{
-  fill: #379337;  
-}
-
-.treemap-cluster-selected
-{
-  stroke: black;
-  stroke-width: 2;
-}
-
-.treemap-partial-selected
-{
-  fill: #65cddc;
-}
-
-.treemap-unselected
-{
-  opacity: 0.3;
 }
 
 /******************
