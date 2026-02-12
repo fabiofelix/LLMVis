@@ -12,7 +12,11 @@ SEED_VALUE = 1537
 ##https://numba.pydata.org/numba-doc/0.48.0/developer/caching.html#cache-clearing
 ##https://numba.pydata.org/numba-doc/0.48.0/reference/envvars.html#envvar-NUMBA_CACHE_DIR
 #to save numba cache out the /home folder
-main_cache_path = os.path.join("/vast", os.path.basename(os.path.expanduser("~")))
+main_cache_path = os.path.expanduser("~")
+
+if os.path.isdir("/vast"):
+  main_cache_path = os.path.join("/vast", os.path.basename(os.path.expanduser("~")))
+  
 clip_download_root = None
 omni_path = os.path.join(os.path.expanduser("~"), ".cache/torch/hub/facebookresearch_omnivore_main")
 hugging_path = None
