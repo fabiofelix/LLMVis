@@ -1,7 +1,7 @@
 
-# Visual exploration of transformer text embedding spaces using explanation methods
+# Exploring Transformer Text Embeddings with Explainable Visual Analytics
 
-This repo contains a code implementation of the visualization tool proposed by a [paper]() submitted to [??](). It combines projections, word cloud, and explainers to explore LLM embedding spaces.
+This repo contains a code implementation of the visualization tool proposed by a [paper]() submitted to [...](). It <q>combines text and token representations to explore how transformer embedding spaces represent global and local text contexts</q>.
 
 ## **Install**
 
@@ -18,7 +18,7 @@ This repo contains a code implementation of the visualization tool proposed by a
   pip install -r requirements_vis.txt
 ```
 
-## **Extract information**
+## **Extraction**
 
 1. Run the following code to extract the features
 
@@ -87,45 +87,41 @@ This repo contains a code implementation of the visualization tool proposed by a
 
 4. Basic configurations
 
-  - The whole visualization was tested with Python `3.9.23` or `3.10.6`
-  - Different screen resolutions can show different number of tokens in Token-frequency view, for example, 1366x768 or 1920x1160
-
-> [!WARNING] 
-> Every time the Word Cloud is updated, the words will be in different positions due to randomness of the used [d3-cloud](https://github.com/jasondavies/d3-cloud) code.
-
+  - The whole visualization was tested with Python `3.9.23` or `3.10.6`  
+  - Variations on the token length and screen resolutions can show different number of tokens in Token-frequency view, for example, 1366x768 or 1920x1160 resolutions
 
 3. Vis tool interaction:
-  * Scatter plot: color palette maps classes
+  * Scatter plot: color palette maps data classes (ground-truth)
     - Select different projections on the top-right drop-down list
     - Click on the plot area and drag to select a region with samples
-    - Click on the plot area remove selection
-    - Mouse-over on of the on the colored square on the bottom-left side to check class name
+    - Click on the plot area to remove selection
+    - Mouse-over on one of the on the colored square on the bottom-left side to check class name
     - Click on the colored square on the bottom-left side to (un)select all samples from that class
   * Word cloud: bigger and darker words are more frequent than smaller and lighter ones
-    - Mose over one token to show more information
+    - Mose over one token to show syntactic and semantic information
     - Click on one token to (un)select  
     - Use the top-right menu to clear all selections
-  * Sankey diagram: left rectangles represent predicted classes and right ones the more important tokens for each predicted class
+  * Sankey diagram: left rectangles represent predicted classes and right ones the most important tokens for each predicted class
     - Select different explaners on the top-right drop-down list
     - Click on one class/token to (un)select
     - Mose over one link to show more information
-  * Texts: left-most bar color maps classes
+  * Texts: left-most bar color maps data classes (ground-truth)
     - Click on the title (text id + label) to (un)select the text
     - Use the top-right menu to clear all text selections
 
 ## **Basic code structure**
 
 1. Feature extractor:
-  - If you want to add a new **model**, you should inheret the class `MyModelFamily` and update the `create_model` function, both in `extractor/models.py`
-  - If you want to add a new **dataset**, you should inheret the class `TextDataset` and update the `create_dataset` function, both in `extractor/datasets.py`
-  - If you want to add a new **explainer**, you should inheret the class `Explainer` in `extractor/xai.py` and update `save_explanation` function in `extractor/extract_features.py`
-  - If you want to add a new **projection**, you should update `save_projection` function in `extractor/extract_features.py`
-  - If you want to change the **token info** extraction, you should update `extract_token_info` function in `extractor/extract_features.py`
+  - To add a new **model**, you should inheret the class `MyModelFamily` and update the `create_model` function, both in `extractor/models.py`
+  - To add a new **dataset**, you should inheret the class `TextDataset` and update the `create_dataset` function, both in `extractor/datasets.py`
+  - To add a new **explainer**, you should inheret the class `Explainer` in `extractor/xai.py` and update `save_explanation` function in `extractor/extract_features.py`
+  - To add a new **projection**, you should update `save_projection` function in `extractor/extract_features.py`
+  - To change the **token info** extraction, you should update `extract_token_info` function in `extractor/extract_features.py`
   - The main funtion is `run` in `extractor/extract_features.py`
   
 2. Vis tool:
-  - If you want to add a new **visualization**, you should inheret the view manager `VisManager` in `static/js/client.js` and the drawer `MySVG` in `static/js/svg.js`
-  - The bind between objects and DOM components is in  `document.addEventListener("DOMContentLoaded", function(){ .. })` of `static/js/client.js`
+  - To add a new **visualization**, you should inheret the view manager `VisManager` in `static/js/client.js` and the drawer `MySVG` in `static/js/svg.js`
+  - The binding between objects and DOM components is in  `document.addEventListener("DOMContentLoaded", function(){ .. })` of `static/js/client.js`
   - The main HTML is `templates/index.html` and CSS is `static/css/vis.css`
   - The flask server main function is `filter` in `server.py`
 
