@@ -431,6 +431,10 @@ class Projection extends VisManager
     this.sentences_ = []; 
     super.clear();
   }  
+  build_header_msg(samples, proj, silhouette)
+  {
+    return `Text - ${samples} samples - ${proj} with sh.: ${silhouette.toFixed(4)}`;
+  }  
   get sentences()
   {
     return this.sentences_;
@@ -452,7 +456,7 @@ class Projection extends VisManager
   show(data, clear=false)
   {
     const objs = this.extract_data(data.objs);
-    this.set_header("Text - " + objs.data.length + " samples - " + objs.name + " - sh.: " + objs.silhouette.toFixed(4) );
+    this.set_header(this.build_header_msg(objs.data.length, objs.name, objs.silhouette));
     const sum = {min_x: Number.MAX_VALUE, min_y: Number.MAX_VALUE, max_x: Number.MIN_VALUE, max_y: Number.MIN_VALUE};
     const unique_label = [];
     const _this = this;
@@ -663,6 +667,11 @@ class Explanation extends VisManager
   {
     this.clear_list();
     super.clear();
+  }    
+  build_header_msg(samples, explainer)
+  {
+    let class_label = samples < 2 ? "class" : "classes"
+    return `Predicted on test set - ${samples} ${class_label} - ${explainer}`;
   }      
   drawer_callback(data, position)
   {
@@ -781,7 +790,7 @@ class Explanation extends VisManager
         cls.fixedValue = class_min_value / 2;
     });
 
-    this.set_header("Predicted - " + node_objects.length + (node_objects.length < 2 ? " class" : " classes") +  " on test set - " + this.name);
+    this.set_header(this.build_header_msg(node_objects.length, this.name));
 
     return {nodes: node_objects.concat(token), links: links, sentences: PROJECTION_VIEW.sentences};
   }   
@@ -798,7 +807,7 @@ class Explanation extends VisManager
       this.data = objs.data
       this.name = objs.name;
 
-      this.set_header("Predicted - " + this.classes.length + (this.classes.length < 2 ? " class" : " classes") + " on test set - " + this.name);
+      this.set_header(this.build_header_msg(this.classes.length, this.name));
 
       this.drawer.draw(this.process_data(), {}, LABEL_COLOR_PALETTE);
     }
@@ -917,6 +926,11 @@ class TextView extends VisManager
 
     document.getElementById("clear_text_selection").addEventListener("click", function(event){ _this.clear_all(event) }); 
   }
+  build_header_msg(samples)
+  {
+    let samples_label = samples < 2 ? "sample" : "samples"
+    return `Text - ${samples} ${samples_label}`;
+  }        
   show(data, clear=false)
   { 
     if(clear)
@@ -967,8 +981,7 @@ class TextView extends VisManager
     }
 
     this.paginator.manage_control();
-    let count_text = this.paginator.count_text;
-    this.set_header("Text - " + count_text + (count_text < 2 ? " sample" : " samples"));
+    this.set_header(this.build_header_msg(this.paginator.count_text));
   }
   clear_all(event)
   {
@@ -986,8 +999,7 @@ class TextView extends VisManager
     });
     
     this.clear();
-    let count_text = this.paginator.count_text;
-    this.set_header("Text - " + count_text + (count_text < 2 ? " sample" : " samples"));
+    this.set_header(this.build_header_msg(this.paginator.count_text));
   }
   drawer_callback(event)
   {
@@ -1042,8 +1054,7 @@ class TextView extends VisManager
     this.paginator.set_selected_text(FILTER.count(this.filter_type) === 0 ? [] : items);
     this.paginator.paginate_text();
     this.paginator.manage_control();
-    let count_text = this.paginator.count_text;
-    this.set_header("Text - " + count_text + (count_text < 2 ? " sample" : " samples"));    
+    this.set_header(this.build_header_msg(this.paginator.count_text));    
   }      
 }
 
