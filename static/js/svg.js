@@ -190,7 +190,7 @@ class ScatterPlot extends MySVG
       .attr('width', rect_size)
       .attr('height', rect_size)
       .style("fill", function (d) { return palette(d); })
-      .on("mouseover", function (event, target) { _this.tooltip.show(target, [event.clientX, event.clientY]); })
+      .on("mouseover", function (event, target) { _this.tooltip.show(`<b>Ground-truth:</b> ${target}`, [event.clientX, event.clientY]); })
       .on("mouseout", function (event, target) { _this.tooltip.hide(); })
       .on("click", function (event, target) 
       {
@@ -254,23 +254,28 @@ class WordCloud extends MySVG
     super(wrapper, tooltip);
     this.token_info = new TokenInfo();
     this.current_selected_word = null;
+    this.placed_words = 0;
   }  
   draw(data, data_summary, palette) 
   {
     const _this = this;
     this.svg = this.config_svg();
+    this.placed_words = 0;
     const group = this.svg.select("g");
     const size_scale = d3.scaleLinear().domain([data_summary.min_freq, data_summary.max_freq]).range([20, 40]);
-    const color_scale = d3.scaleSequential(d3.interpolate("#c8eac8", "#379337")).domain([data_summary.min_freq, data_summary.max_freq]);        
+    const color_scale = d3.scaleSequential(d3.interpolate("#a4dca4", "#4f7d4f")).domain([data_summary.min_freq, data_summary.max_freq]);
 
     const layout = d3.layout.cloud()
     .size([+this.svg.attr("width"), +this.svg.attr("height")])
     .words(data)
     .padding(5)
-    .font("sans-serif")
+    .rotate(0)
+    .spiral("rectangular")
+    .random(seededRandom(42))
     .fontSize(function(d) { return size_scale(d.frequency); })
     .on("end", function(words)
     {
+      _this.placed_words = words.length;
       group
         .attr("transform", "translate(" + layout.size()[0] / 2 + "," + layout.size()[1] / 2 + ")")
         .selectAll("text")
@@ -278,7 +283,6 @@ class WordCloud extends MySVG
         .enter()
         .append("text")
         .style("font-size", function(d) { return d.size + "px"; })
-        .style("font-family", function(d) { return d.font; })
         .style("fill", function(d) { return color_scale(d.frequency); })
         .attr("class", function (obj) { return _this.get_word_class(obj); })
         .attr("text-anchor", "middle")

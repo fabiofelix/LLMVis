@@ -491,7 +491,7 @@ class WordView extends VisManager
     this.filter_type = "word";
     this.drawer = new WordCloud(chart_id, TOOLTIP);
     this.words = [];
-    this.max_samples = 50;
+    this.max_samples = 70;
     const _this = this;
     this.drawer.on("end", function(data, position){ _this.drawer_callback(data, position); });
     
@@ -501,8 +501,12 @@ class WordView extends VisManager
   {
     event.preventDefault();
     this.clear();
-    this.set_header("Token - " + this.max_samples + " samples more frequent");    
+    this.set_header(this.build_header_msg(this.drawer.placed_words));    
   }
+  build_header_msg(value)
+  {
+    return `Token - ${value} most frequent`;
+  }  
   drawer_callback(data, position)
   {
     const data_filtered = FILTER.set_view(this.filter_type, data).set_pos(this.filter_type, position).get_view();
@@ -585,9 +589,8 @@ class WordView extends VisManager
     .sort(function(a, b) { return a.frequency - b.frequency; })
     
     const filtered = this.zipf_law(this.words);
-    this.set_header("Token - " + filtered.length + " samples more frequent");
-    
     this.drawer.draw(filtered, {min_freq: filtered[0].frequency, max_freq: filtered[filtered.length - 1].frequency});
+    this.set_header(this.build_header_msg(this.drawer.placed_words));
   }
   select_items(items, redraw = true)
   {
@@ -627,12 +630,13 @@ class WordView extends VisManager
     }
 
     filtered = filtered.length === 0 ? filtered : this.zipf_law(filtered);
-    this.set_header("Token - " + filtered.length + " samples more frequent");
-
+    
     if(filtered.length === 0)
       this.drawer.draw(filtered, {min_freq: 0, max_freq: 0});
     else
       this.drawer.draw(filtered, {min_freq: filtered[0].frequency, max_freq: filtered[filtered.length - 1].frequency});
+
+    this.set_header(this.build_header_msg(this.drawer.placed_words));
   }    
 }
 
