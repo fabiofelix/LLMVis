@@ -469,6 +469,17 @@ class SankeyDiagram extends MySVG
       });
 
     node
+      .filter(function(d) { return d.type == "class"; })
+      .append("rect")
+      .attr("class", "sankey-rect-pattern")
+      .attr("x", function(d) { return d.x0; })
+      .attr("y", function(d) { return d.y0; })
+      .attr("height", function(d) { return d.y1 - d.y0; })
+      .attr("width", sankey.nodeWidth())
+      .attr("fill", "url(#overlay-stripes)")
+      .attr("pointer-events", "none");
+
+    node
       .append("text")
       .attr("x", function(d) { return d.x0 - _this.margin.text_offset; })
       .attr("y", function(d) { return (d.y1 + d.y0) / 2; })
@@ -489,6 +500,20 @@ class SankeyDiagram extends MySVG
     this.svg = this.config_svg();
     this.group = this.svg.select("g")
       .attr("transform", "translate(" + this.margin.left + "," + this.margin.top + ")");            
+
+    this.svg
+      .append("defs")
+      .append("pattern")
+      .attr("id", "overlay-stripes")
+      .attr("width", 12)
+      .attr("height", 12)
+      .attr("patternUnits", "userSpaceOnUse")
+      .append("line")
+        .attr("class", "sankey-pattern")
+        .attr("x1", 0)
+        .attr("y1", 12)
+        .attr("x2", 12)
+        .attr("y2", 0);
 
     const sankey = d3.sankey()
       .nodeWidth(20)

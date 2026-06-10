@@ -174,9 +174,7 @@
 
 .sankey-node rect
 {
-  fill-opacity: .9;
   shape-rendering: crispEdges;  
-  /* stroke: #000; */
   stroke: #999999;
   stroke-width: 1;
   cursor: pointer; 
@@ -197,4 +195,17 @@
 {
   pointer-events: none;
   text-shadow: 0 1px 0 #fff;
+}
+
+.sankey-rect-pattern
+{
+  stroke: none !important;
+  cursor: none !important;
+}
+
+.sankey-pattern
+{
+  stroke: #fff;
+  stroke-width: 2;
+  stroke-opacity: 0.7;
 }
