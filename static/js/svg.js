@@ -24,6 +24,10 @@ class MySVG
 
     return this;
   }
+  get clientHeight()
+  {
+    return this.wrapper.clientHeight;
+  }
   config_svg() 
   {
     let svg = d3.select(this.wrapper).select("svg");
@@ -35,7 +39,7 @@ class MySVG
 
     svg
       .attr("width", this.wrapper.clientWidth)
-      .attr("height", this.wrapper.clientHeight)
+      .attr("height", this.clientHeight)
       .append("g");
 
     return svg;
@@ -107,6 +111,7 @@ class ScatterPlot extends MySVG
     super(wrapper, tooltip);
     this.legend = null;
     this.circle_size = 3;
+    this.legend_height = 20;
     this.clear();
   }
   clear()
@@ -115,13 +120,17 @@ class ScatterPlot extends MySVG
     this.current_lasso_selection = [];
     super.clear();
   }    
+  get clientHeight()
+  {
+    return this.wrapper.clientHeight - this.legend_height;
+  }
   config_legend() 
   {
     if(this.legend === null)
       this.legend = d3.select(this.wrapper)
         .append("svg")
         .attr("width", this.wrapper.clientWidth)
-        .attr("height", 20);
+        .attr("height", this.legend_height);
     else
       this.legend.selectAll("*").remove();
 
@@ -174,7 +183,7 @@ class ScatterPlot extends MySVG
     label_list.sort();
     this.config_legend();
 
-    const rect_size = 15;
+    const rect_size = this.legend_height;
     const legend_group = this.legend.select("g");   
     const _this = this;
 
