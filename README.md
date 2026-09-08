@@ -31,10 +31,10 @@ This repo contains a code implementation of the visualization tool proposed by a
       (2) TinyStories
       (3) Amazon
   -m  model index (required)
-      (0) BERT
-      (1) DeBERTa 2 (88B)
-      (2) Llama 3.1 (8B)
-      (3) Gemma 2 (9B)
+      (0) BERT base uncased
+      (1) DeBERTa v2
+      (2) Llama v3.1
+      (3) Gemma v2
   -o  path to save the outputs (required)
   -s  path to load the data (if the dataset loads from files, such as PaperAbstract, BBCNews, TinyStories, or Amazon)
   -n  number of samples to load from the dataset (default = 100)
@@ -44,7 +44,7 @@ This repo contains a code implementation of the visualization tool proposed by a
 2. Available models
 
   - [BERT](https://huggingface.co/google-bert/bert-base-uncased) base uncased with 110 milion parameters
-  - [DeBERTa](https://huggingface.co/microsoft/deberta-v2-xlarge) version 2 with ~88 bilion parameters
+  - [DeBERTa](https://huggingface.co/microsoft/deberta-v2-xlarge) version 2 with 900 milion parameters
   - [Llama](https://huggingface.co/meta-llama/Llama-3.1-8B) version 3.1 with 8 billion parameters
   - [Gemma](https://huggingface.co/google/gemma-2-9b) version 2 with 9 billion parameters
 
@@ -58,12 +58,26 @@ This repo contains a code implementation of the visualization tool proposed by a
 
 4. Basic configurations
 
-  - All extractions were performed in a NVIDIA A100 GPU, with RAM of 128 GB, and Python 3.12.8
+  - All extractions were performed in a NVIDIA A100 GPU, with RAM of 128 GB, and Python `3.12.8`
   - We called the code with `-b 100` in all BERT and DeBERTa tests, `-b 50` for Llama , and `-b 25` for Gemma
   - We also used `-n 1000`
 
+5. Examples  
+
+``` 
+python extract_features.py -m 0 -d 0 -s data/paper/ -o output/ -n 1000 -b 100 
+
+python extract_features.py -m 0 -d 1 -s data/bbc/ -o output/ -n 1000 -b 100
+
+python extract_features.py -m 0 -d 2 -s data/tinystories/ -o output/ -n 1000 -b 100
+
+python extract_features.py -m 0 -d 3 -s data/amazon-fine-food-reviews.csv -o output/ -n 1000 -b 100
+``` 
+
+
 > [!WARNING] 
 > Even with the code setting `torch.manual_seed` and other seeds, the models' outputs can very between executions. For example, the user can identify suitable changes in the projection as point rotation.
+> Similarly, different Pandas versions can return different data samples even with the same `random_state`
 
 
 > [!IMPORTANT] 
@@ -72,7 +86,7 @@ This repo contains a code implementation of the visualization tool proposed by a
 > 1. `LLAMA_HPC_PATH`
 > 2. The method `set_model_path` for DeBERTa, Llama and Gemma models
 > 
-> In the `extractor/utils.py` file, the `main_cache_path` variable is automatically configured to your `home` folder.
+> In the `extractor/utils.py` file, the `main_cache_path` variable is automatically set up to your `home` folder.
 
 
 ## **Visualization**
@@ -87,18 +101,19 @@ This repo contains a code implementation of the visualization tool proposed by a
 
 4. Basic configurations
 
-  - The whole visualization was tested with Python `3.9.23` or `3.10.6`  
-  - Variations on the token length and screen resolutions can show different number of tokens in Token-frequency view, for example, 1366x768 or 1920x1160 resolutions
+  - The whole visualization was tested with Python `3.9.23` or `3.10.6`
+  - Variations on the token length and screen resolutions can show different number of tokens (up to 70) in Token-frequency view, for example, screens with `1366x768` or `1920x1160` resolution
 
 3. Vis tool interaction:
   * Scatter plot: color palette maps data classes (ground-truth)
     - Select different projections on the top-right drop-down list
-    - Click on the plot area and drag to select a region with samples
-    - Click on the plot area to remove selection
-    - Mouse-over on one of the on the colored square on the bottom-left side to check class name
+    - Right click on the plot area presents a context-menu with basic subgroup/outlier detection. *Clear selection* option removes all selections done on this menu.
+    - Selected outliers show a thicker black border
+    - Left click on the plot area and drag to select a region with samples. Another left click removes this selection.
+    - Mouse-over on one of the colored square on the bottom-left side to check class name
     - Click on the colored square on the bottom-left side to (un)select all samples from that class
   * Word cloud: bigger and darker words are more frequent than smaller and lighter ones
-    - Mose over one token to show syntactic and semantic information
+    - Move over one token to show syntactic and semantic information
     - Click on one token to (un)select  
     - Use the top-right menu to clear all selections
   * Sankey diagram: left rectangles represent predicted classes and right ones the most important tokens for each predicted class
@@ -107,6 +122,7 @@ This repo contains a code implementation of the visualization tool proposed by a
     - Mose over one link to show more information
   * Texts: left-most bar color maps data classes (ground-truth)
     - Click on the title (text id + label) to (un)select the text
+    - Selected outliers show a thicker black border
     - Use the top-right menu to clear all text selections
 
 ## **Basic code structure**
@@ -117,6 +133,8 @@ This repo contains a code implementation of the visualization tool proposed by a
   - To add a new **explainer**, you should inheret the class `Explainer` in `extractor/xai.py` and update `save_explanation` function in `extractor/extract_features.py`
   - To add a new **projection**, you should update `save_projection` function in `extractor/extract_features.py`
   - To change the **token info** extraction, you should update `extract_token_info` function in `extractor/extract_features.py`
+  - To change the **outlier** detection, you should update the class `OutlierDetector`in `extractor/detection.py` and the `save_outlier` function in `extractor/extract_features.py`
+  - To change the **subgroup** detection, you should update the class `SubGroupDetector`in `extractor/detection.py` and the `save_subgroup` function in `extractor/extract_features.py`  
   - The main funtion is `run` in `extractor/extract_features.py`
   
 2. Vis tool:
