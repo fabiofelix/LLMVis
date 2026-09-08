@@ -743,6 +743,11 @@ class Explanation extends VisManager
                 { 
                   return _this.selected_sentence.includes(stn) && _this.data.label[j][index] === _this.classes[i];  
                 });
+              else 
+                token_selected_sentences = token_selected_sentences.filter(function(stn, index)
+                { 
+                  return _this.data.label[j][index] === _this.classes[i];  
+                });               
 
               if(token_selected_sentences.length > 0)
               {
@@ -1175,36 +1180,36 @@ class PaginateText
     for(let idx = 0; idx < cols.length; idx++)
     {
       this.call_back.paginate(cols[idx], []);
-      let hidden = false;
-
+      let selected = false;
+      
       //Selection from: scatterplot
       if(this.selected_text instanceof Array)
       {
-        hidden = this.selected_text.length > 0 && !this.selected_text.includes(cols[idx].dataset.id);
+        selected = this.selected_text.length == 0 || this.selected_text.includes(cols[idx].dataset.id);
       }
       //Selection from: wordcloud and sankey
       else if(ids.length > 0)
       {
-        hidden = !ids.includes(cols[idx].dataset.id);
-
-        if(!hidden)
+        selected = ids.includes(cols[idx].dataset.id);
+        
+        if(selected)
         {
           let text_tokens = this.selected_text[cols[idx].dataset.id];
           this.call_back.paginate(cols[idx], text_tokens);
         }
       }
-
-      if(!hidden)
+            
+      if(selected)
         ++this.count_selected_text;
 
-      this.text_hidden(this.selected_text.length == 0 ? idx : this.count_selected_text, cols[idx], hidden);
+      this.text_hidden(this.selected_text.length == 0 ? idx : (this.count_selected_text - 1), cols[idx], selected);
     }     
   }
-  text_hidden(idx, obj, hidden = false)
+  text_hidden(idx, obj, selected = true)
   {
     obj.classList.remove("hidden");
 
-    if(hidden || idx < this.first_idx || idx >= (this.first_idx + this.inc))
+    if(!selected || idx < this.first_idx || idx >= (this.first_idx + this.inc))
       obj.classList.add("hidden"); 
   }
   manage_control()

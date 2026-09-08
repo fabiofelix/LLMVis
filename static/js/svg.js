@@ -166,13 +166,14 @@ class ScatterPlot extends MySVG
       .targetArea(this.svg)
       .on("end", function () 
       {
-        const ids = lassoBrush.selectedItems()["_groups"][0]
+        let ids = lassoBrush.selectedItems()["_groups"][0]
           .map(function(item, i) { return item.__data__.sentence_id; });
 
-        if(_this.current_lasso_selection.length !== ids.length)  
+        if(_this.current_lasso_selection.length !== ids.length || !_this.current_lasso_selection.every(function(value, i){ value === ids[i]}))  
         {  
           _this.current_lasso_selection = ids
-          _this.call_back.end(ids, "lasso");
+          ids = _this.call_back.end(ids, "lasso");
+          _this.select(ids);
         }
       });
     this.svg.call(lassoBrush);
@@ -235,6 +236,7 @@ class ScatterPlot extends MySVG
     let class_name = "scatter-circle";
 
     if ((this.selected_items.length > 0 && !this.selected_items.includes(obj.sentence_id)) ||
+        (this.current_lasso_selection.length > 0 && !this.current_lasso_selection.includes(obj.sentence_id)) ||
         (this.current_selected_class.length > 0 && !this.current_selected_class.includes(obj.label)))
       class_name += " scatter-unselected";
 
@@ -248,7 +250,7 @@ class ScatterPlot extends MySVG
     if(redraw)
     {
       this.current_selected_class = [];
-      this.legend.selectAll(".scatter-legend-selected").each(function(class_) { _this.current_selected_class.push(class_);  })
+      this.legend.selectAll(".scatter-legend-selected").each(function(class_) { _this.current_selected_class.push(class_);  });
 
       this.svg.select("g").selectAll("circle")
         .attr("class", function (obj) { return _this.get_circle_class(obj); });    
