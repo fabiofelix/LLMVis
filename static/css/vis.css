@@ -25,6 +25,11 @@
   pointer-events: none;
 }
 
+#tooltip p
+{
+  margin: 0rem;
+}
+
 #loader_msg
 {
   margin-top: 20px;
@@ -43,12 +48,23 @@
   padding-bottom: 0.20rem !important;
 }
 
+.table
+{
+  margin-bottom: .5rem !important;
+}
+
 .table-caption
 {
   caption-side: top;
   text-align: center;
-  padding-bottom: 5px;
+  padding-top: 2px;
+  padding-bottom: 2px;
   font-weight: bold;
+}
+
+.table-merged-row
+{
+  text-align: center;
 }
 
 @media (min-width:1367px)
@@ -58,6 +74,30 @@
     height: 28.125rem !important;  
   }  
 }
+
+.dropdown-submenu 
+{
+  position: relative;
+}
+
+.dropdown-submenu > .dropdown-menu 
+{
+  top: 0;
+  left: 100%;
+  margin-top: -1px;
+}
+
+.dropdown-submenu:hover > .dropdown-menu 
+{
+  display: block;
+}
+
+.dropdown-submenu > .dropdown-toggle::after 
+{
+  margin-left: 2px;
+  transform: rotate(-90deg);
+}
+
 
 /******************
   Lasso - D3.js
@@ -102,6 +142,12 @@
   stroke-width: 1;
 }
 
+.scatter-outlier-selected
+{
+  stroke: black;
+  stroke-width: 2;
+}
+
 /******************
   Text
 ******************/
@@ -126,6 +172,11 @@
 {
   background-color: #858796;
   color: #fff;
+}
+
+.text-outlier
+{
+  border: 2px solid black !important; 
 }
 
 /******************

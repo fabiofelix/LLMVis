@@ -2,6 +2,7 @@ let FILTER = null;
 let MODEL_LIST = null;
 let LOADER_CONTROL = null;
 let TOOLTIP = null;
+let CONTEXT_MENU = null;
 let LABEL_COLOR_PALETTE = null;
 
 let PROJECTION_VIEW = null;
@@ -13,11 +14,12 @@ let EXPLANATION_VIEW = null;
 document.addEventListener("DOMContentLoaded", function()
 {
   TOOLTIP = new Tooltip("page-top");
+  CONTEXT_MENU = new ContextMenu("page-top");
   MODEL_LIST = new Model("model_list", "data_model_title");
   LOADER_CONTROL = new LoaderControl("loader_msg", ["wrapper"]);
   FILTER = new FilterManager();
 
-  PROJECTION_VIEW = new Projection("projection_list", "projection_header", "projection_chart_area");
+  PROJECTION_VIEW = new Projection("projection_list", "projection_header", "projection_chart_area", "projection_info");
   WORD_VIEW = new WordView("wordcloud_list", "wordcloud_header", "wordcloud_chart_area");
   EXPLANATION_VIEW = new Explanation("explain_list", "explain_header", "explain_chart_area", "explain_info")
   TEXT_VIEW = new TextView("text_list", "text_header", "text_area");
@@ -27,6 +29,17 @@ document.addEventListener("DOMContentLoaded", function()
   .then(data => {
       MODEL_LIST.create_list(data.models);
   });
+});
+
+// Hide the context menu programatically in each context-item click
+document.addEventListener("mousedown", function(event)
+{
+  if(CONTEXT_MENU.is_visible)
+  {
+    event.preventDefault();
+    event.stopPropagation();
+    CONTEXT_MENU.hide();
+  }  
 });
 
 class Tooltip
@@ -78,6 +91,57 @@ class Tooltip
   }
 }
 
+class ContextMenu
+{
+  constructor(wrapper)
+  {
+    this.div = document.getElementById("context-menu");
+
+    if(this.div == null)
+    {
+      this.div = document.createElement("div");      
+      this.div.id = "context-menu";
+      this.div.className = "dropdown-menu shadow animated--grow-in hidden";
+      this.div.style.display = "";
+      this.div.setAttribute("aria-labelledby", "userDropdown");
+
+      document.getElementById(wrapper).appendChild(this.div);
+
+      this.div.addEventListener("mousedown", function(event) { event.stopPropagation(); });      
+    }
+  }
+  show(items, position)
+  {
+    this.div.innerHTML = "";
+    this.div.style.display = "block";
+    this.div.classList.remove("hidden");
+
+    this.div.style.left = position[0] + "px";
+    this.div.style.top = position[1] + "px";
+
+    if(typeof items === "string")
+      this.div.innerHTML = items;
+    else if (Array.isArray(items))
+    {
+      for(let item of items)
+      {
+        this.div.appendChild(item);
+      }
+    }
+    else
+      console.log("Warning: ContextMenu works only with html 'string' or 'array' of items");
+  }
+  hide()
+  {
+    this.div.style.display = "";
+    this.div.classList.add("hidden");
+  }
+  get is_visible()
+  {
+    return this.div.style.display === "block";
+  }
+}
+
 class LoaderControl
 {
   constructor(div_id, control_list)
@@ -125,6 +189,19 @@ class LoaderControl
   }
 }
 
+const FilterTypes = Object.freeze(
+  {
+    MODEL: "model",
+    EXPLANATION: "explanation",
+    WORD: "word",
+    TEXT: "text",
+    PROJECTION: "projection",
+    PROJECTION_LASSO: "lasso",
+    PROJECTION_CLASS: "class",
+    PROJECTION_OUTLIER: "outlier",
+    PROJECTION_SUBGROUP: "subgroup",
+  });
+
 class FilterManager
 {
   constructor()
@@ -155,6 +232,8 @@ class FilterManager
     //view_lasso and view_class filter are from projection view
     this.view_lasso = [];
     this.view_class = [];
+    this.view_outlier = [];
+    this.view_subgroup = [];
     this.view_word = [];
     this.view_word_position = [];
     this.view_text = [];
@@ -196,6 +275,11 @@ class FilterManager
     {
       this["view_" + filter_type] = value;
 
+      if(filter_type === FilterTypes.PROJECTION_OUTLIER)
+        this["view_" + FilterTypes.PROJECTION_SUBGROUP] = [];
+      if(filter_type === FilterTypes.PROJECTION_SUBGROUP)
+        this["view_" + FilterTypes.PROJECTION_OUTLIER] = [];      
+
       for(let i = 0; i < this.call_back.onset.length; i++)
         this.call_back.onset[i](filter_type, value);
     }  
@@ -215,8 +299,8 @@ class FilterManager
   }  
   get_view(filter_type)  
   {
-    if(filter_type == "projection")
-      return this.view_lasso.concat(this.view_class);
+    if(filter_type == FilterTypes.PROJECTION)
+      return this.view_lasso.concat(this.view_class).concat(this.view_outlier).concat(this.view_subgroup);
     else if(filter_type !== undefined)
     {
       if(this.hasOwnProperty("view_" + filter_type))
@@ -228,6 +312,9 @@ class FilterManager
     //================== RETURNS INTERSECTION ==================//
     const key_list = Object.keys(this).filter(function(value) {  return value.includes("view_") && !value.includes("_position") });
     let aux_ids = this[key_list[0]];
+    const _this = this; 
+    //It returns the union between lasso and outlier filters
+    const lasso_contains_outlier = this.view_outlier.some(function(value){  return _this.view_lasso.indexOf(value) !== -1; });
 
     for(let k = 1; k < key_list.length; k++)
     {
@@ -236,7 +323,10 @@ class FilterManager
       if(aux_ids.length == 0)
         aux_ids = current_filter;
       else if(current_filter.length > 0)
-        aux_ids = aux_ids.filter(function(value) { return current_filter.includes(value); });
+      {  
+        if(!key_list[k].includes(FilterTypes.PROJECTION_OUTLIER) || !lasso_contains_outlier)
+          aux_ids = aux_ids.filter(function(value) { return current_filter.includes(value); });
+      }  
     }
 
     return aux_ids;    
@@ -278,9 +368,9 @@ class FilterManager
     {
       if(except === undefined || except === null)
         count += this[key].length;
-      else if(except == "projection")
+      else if(except == FilterTypes.PROJECTION)
       {
-        if(!key.includes("lasso") && !key.includes("class"))
+        if(!key.includes(FilterTypes.PROJECTION_LASSO) && !key.includes(FilterTypes.PROJECTION_CLASS))
           count += this[key].length;
       }
       else if(!key.includes(except))
@@ -352,7 +442,7 @@ class VisManager
     event.preventDefault();
     FILTER.set_server(this.filter_type, event.target.innerHTML);
 
-    if(this.filter_type == "model")
+    if(this.filter_type == FilterTypes.MODEL)
       FILTER.clear_window();
 
     const URL = new Request("filter", 
@@ -387,6 +477,10 @@ class VisManager
   {
     throw new Error('You have to implement the method get_info!');
   }
+  build_header_msg(samples, desc)
+  {
+    return `${samples} - ${desc}`;
+  }    
   select_items(items, redraw = true)    
   {
     this.drawer.select(FILTER.count(this.filter_type) === 0 ? [] : items, redraw);
@@ -398,7 +492,7 @@ class Model extends VisManager
   constructor(div_list_id, header_id, chart_id, info_id)
   {
     super(div_list_id, header_id, chart_id, info_id);
-    this.filter_type = "model";
+    this.filter_type = FilterTypes.MODEL;
   }
   show(data, clear=false)
   {
@@ -420,9 +514,10 @@ class Projection extends VisManager
   constructor(div_list_id, header_id, chart_id, info_id)
   {
     super(div_list_id, header_id, chart_id, info_id);
-    this.filter_type = "projection";
-    this.drawer = new ScatterPlot(chart_id, TOOLTIP);
+    this.filter_type = FilterTypes.PROJECTION;
+    this.drawer = new ScatterPlot(chart_id, TOOLTIP, CONTEXT_MENU);
     const _this = this;
+    this.data = null;
     this.drawer.on("end", function(data, second_filter_type){ return _this.drawer_callback(data, second_filter_type); });
     this.clear();
   }
@@ -431,9 +526,9 @@ class Projection extends VisManager
     this.sentences_ = []; 
     super.clear();
   }  
-  build_header_msg(samples, proj, silhouette)
+  build_header_msg(samples, desc)
   {
-    return `Text - ${samples} samples - ${proj} with sh.: ${silhouette.toFixed(4)}`;
+    return `Text - ${samples} samples - ${desc}`;
   }  
   get sentences()
   {
@@ -447,8 +542,8 @@ class Projection extends VisManager
     const text_label = this.sentences_.filter(function(stn){ return text_ids.includes(stn.sentence_id); });
     EXPLANATION_VIEW.select_items(text_label);
     TEXT_VIEW.select_items(text_ids);
-
-    if (second_filter_type == "class" && FILTER.count("lasso") == 0)
+    
+    if (second_filter_type == FilterTypes.PROJECTION_CLASS && FILTER.count(FilterTypes.PROJECTION_LASSO) == 0)
       return [];
     else
       return text_ids;
@@ -456,7 +551,13 @@ class Projection extends VisManager
   show(data, clear=false)
   {
     const objs = this.extract_data(data.objs);
-    this.set_header(this.build_header_msg(objs.data.length, objs.name, objs.silhouette));
+    this.data = {
+      projection: objs.name,
+      silhouette: objs.silhouette, 
+      silhouette_original: objs.silhouette_original,
+      subgroup: {group_report: objs.subgroup.group_report, local_labels: objs.subgroup.local_labels}
+    };
+    this.set_header(this.build_header_msg(objs.data.length, objs.name));
     const sum = {min_x: Number.MAX_VALUE, min_y: Number.MAX_VALUE, max_x: Number.MIN_VALUE, max_y: Number.MIN_VALUE};
     const unique_label = [];
     const _this = this;
@@ -483,7 +584,61 @@ class Projection extends VisManager
 
     unique_label.sort();
     LABEL_COLOR_PALETTE = d3.scaleOrdinal(d3.schemeCategory10).domain(unique_label);    
-    this.drawer.draw(formated_objs, sum, LABEL_COLOR_PALETTE);
+    this.drawer.draw(formated_objs, sum, LABEL_COLOR_PALETTE, {outlier: objs.outlier, subgroup: objs.subgroup});
+  }
+  get_info()
+  {
+    if(this.data !== null)
+    {
+      let html = "";
+
+      html += "<div class='table-responsive'>";
+      html += "<table class='table table-bordered' id='dataTable' width='100%' cellspacing='0'>";
+      html += "<caption class='table-caption'>Space report</caption>";
+      html += "<thead><tr><th></th><th>silhouette</th></tr></thead>";
+      html += "<tbody>";
+      html += "<tr>"
+              + "<td>high-dimension</td>"
+              + "<td>" + this.data.silhouette_original.toFixed(4) + "</td>" //silhouette
+              + "</tr>";
+      html += "<tr>"
+              + "<td>" + this.data.projection +  "</td>"
+              + "<td>" + this.data.silhouette.toFixed(4) + "</td>" //silhouette
+              + "</tr>";
+      html += "</tbody>";
+      html += "</div>";
+
+      html += "<div class='table-responsive'>";
+      html += "<table class='table table-bordered' id='dataTable' width='100%' cellspacing='0'>";
+      html += "<caption class='table-caption'>Subgroup (cluster) report</caption>";
+      html += "<thead><tr><th></th><th>silhouette</th><th>centroid avg. dist.</th></tr></thead>";
+      html += "<tbody>";
+
+      for(let i = 0; i < this.data.subgroup.group_report.length; i++)
+      {
+        html += "<tr>";
+
+        if(i == 0)
+          html += "<td>global</td>";
+        else 
+          html += "<td>" + this.data.subgroup.local_labels[i - 1] +  "</td>";
+
+        html += "<td>" + this.data.subgroup.group_report[i][0].toFixed(4) + "</td>"; //silhouette
+        html += "<td>" + this.data.subgroup.group_report[i][1].toFixed(2) + "</td>"; //avg. dist.
+
+        html += "</tr>";
+
+        if(i == 0)
+          html += "<tr><td class='table-merged-row' colspan='3'>local</td></tr>";
+      }
+
+      html += "</tbody>"; 
+      html += "</div>";     
+
+      return html;
+    }
+    
+    return null;
   }
 }
 
@@ -492,8 +647,8 @@ class WordView extends VisManager
   constructor(div_list_id, header_id, chart_id, info_id)
   {
     super(div_list_id, header_id, chart_id, info_id);
-    this.filter_type = "word";
-    this.drawer = new WordCloud(chart_id, TOOLTIP);
+    this.filter_type = FilterTypes.WORD;
+    this.drawer = new WordCloud(chart_id, TOOLTIP, CONTEXT_MENU);
     this.words = [];
     this.max_samples = 70;
     const _this = this;
@@ -507,9 +662,9 @@ class WordView extends VisManager
     this.clear();
     this.set_header(this.build_header_msg(this.drawer.placed_words));    
   }
-  build_header_msg(value)
+  build_header_msg(samples, desc)
   {
-    return `Token - ${value} most frequent`;
+    return `Token - ${samples} most frequent`;
   }  
   drawer_callback(data, position)
   {
@@ -649,8 +804,8 @@ class Explanation extends VisManager
   constructor(div_list_id, header_id, chart_id, info_id)
   {
     super(div_list_id, header_id, chart_id, info_id);
-    this.filter_type = "explanation";
-    this.drawer = new SankeyDiagram(chart_id, TOOLTIP);
+    this.filter_type = FilterTypes.EXPLANATION; 
+    this.drawer = new SankeyDiagram(chart_id, TOOLTIP, CONTEXT_MENU);
     this.classes = null;
     this.data = null;
     this.name = null;
@@ -668,10 +823,10 @@ class Explanation extends VisManager
     this.clear_list();
     super.clear();
   }    
-  build_header_msg(samples, explainer)
+  build_header_msg(samples, desc)
   {
     let class_label = samples < 2 ? "class" : "classes"
-    return `Predicted on test set - ${samples} ${class_label} - ${explainer}`;
+    return `Predicted on test set - ${samples} ${class_label} - ${desc}`;
   }      
   drawer_callback(data, position)
   {
@@ -917,7 +1072,7 @@ class TextView extends VisManager
   constructor(div_list_id, header_id, chart_id, info_id)
   {
     super(div_list_id, header_id, chart_id, info_id);
-    this.filter_type = "text";
+    this.filter_type = FilterTypes.TEXT;
     this.objs = null;
     this.highlight = new HighlightText();    
     this.paginator = new PaginateText("text-previous", "text-next", "text-first", "text-last", "text-position", chart_id); 
@@ -931,7 +1086,7 @@ class TextView extends VisManager
 
     document.getElementById("clear_text_selection").addEventListener("click", function(event){ _this.clear_all(event) }); 
   }
-  build_header_msg(samples)
+  build_header_msg(samples, desc)
   {
     let samples_label = samples < 2 ? "sample" : "samples"
     return `Text - ${samples} ${samples_label}`;
@@ -1176,6 +1331,8 @@ class PaginateText
     let cols = this.text_wrapper.querySelectorAll(".col-xl-12");
     let ids = Object.keys(this.selected_text);
     this.count_selected_text = 0;
+    
+    let outliers = FILTER.get_view(FilterTypes.PROJECTION_OUTLIER);
 
     for(let idx = 0; idx < cols.length; idx++)
     {
@@ -1202,8 +1359,18 @@ class PaginateText
       if(selected)
         ++this.count_selected_text;
 
+      this.text_outlier(cols[idx], outliers);
       this.text_hidden(this.selected_text.length == 0 ? idx : (this.count_selected_text - 1), cols[idx], selected);
     }     
+  }
+  text_outlier(obj, outliers)
+  {
+    let card = obj.getElementsByClassName("card")[0];
+
+    card.classList.remove("text-outlier");
+
+    if (outliers.includes(obj.dataset.id))
+      card.classList.add("text-outlier");
   }
   text_hidden(idx, obj, selected = true)
   {

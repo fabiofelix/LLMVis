@@ -1,12 +1,13 @@
 
 class MySVG 
 {
-  constructor(wrapper, tooltip) 
+  constructor(wrapper, tooltip, context) 
   {
     this.wrapper = document.getElementById(wrapper);
     this.svg = this.config_svg();
     this.call_back = { start: function () { }, draw: function () { }, end: function () { } };
     this.tooltip = tooltip;
+    this.context_menu = context;
     this.clear();
   }
   clear()
@@ -44,7 +45,7 @@ class MySVG
 
     return svg;
   };
-  draw(data, data_summary, palette) 
+  draw(data, data_summary, palette, context_data) 
   {
     throw new Error('You have to implement the method draw!');
   }
@@ -104,19 +105,155 @@ class TokenInfo
   }
 }
 
+const ListItemTypes = Object.freeze(
+  {
+    GLOBAL_OUTLIER: "global-outlier",
+    GLOBAL_SUBGROUP: "global-subgroup",
+    LOCAL_OUTLIER: "local-outlier",
+    LOCAL_SUBGROUP: "local-subgroup",
+    CLEAR_SELECTION: "clear-selection"
+  });
+const ListItemIcon = Object.freeze(
+  {
+    NONE: "none",
+    ROOT: "root",
+    LEAF: "leaf",
+  });
+
+
+class DetectorList
+{
+  constructor(palette = null) 
+  {
+    this.palette = palette;
+  }
+  create_split(title)
+  {
+    let split = document.createElement("div");
+    split.className = "dropdown-divider";
+    
+    if(title === undefined)
+      return split
+
+    let output = [split];
+
+    let h6 = document.createElement("h6");
+    h6.className = "dropdown-header";
+    h6.innerHTML = title;
+
+    output.push(h6);
+
+    return output
+  }
+  create_link(title, add_toggle = false, enabled = true, palette = null)
+  {
+    let link = document.createElement("a");
+
+    link.className = "dropdown-item" + (add_toggle ? " dropdown-toggle" : " context-item") + (enabled ? "" : " disabled");
+    link.href = "#";
+
+    if(palette !== null)
+    {  
+      let icon = document.createElement("i");
+      icon.className = "fa fa-solid fa-square mr-1";
+      icon.style.cssText = "color: " + palette(title);
+
+      link.appendChild(icon);
+    }
+
+    link.append(title + (enabled ? "" : " (Empty)"));
+    
+    return link
+  }
+  create_submenu(title, items, item_prefix, item_type, icon_type=ListItemIcon.NONE)
+  {
+    let outer_div = document.createElement("div");
+    outer_div.className = "dropdown-submenu";
+
+    let link = this.create_link(title, true, true, icon_type === ListItemIcon.ROOT ? this.palette : null);
+
+    let inner_div = document.createElement("div");
+    inner_div.className = "dropdown-menu";
+    let count = items.filter(function(value, index, array){ return array.indexOf(value) === index; }).length;
+
+    for (let item of items)
+    {
+      let desc_aux = item_prefix === "" ? item_prefix + item : "";
+      let inner_link = this.create_link(count > 1 ? item_prefix + item : desc_aux, false, count > 1, icon_type === ListItemIcon.LEAF ? this.palette : null);
+      
+      inner_link.dataset.type = item_type;
+      inner_link.dataset.value = item;
+      inner_link.dataset.parent = title;
+      inner_div.appendChild(inner_link);
+    }
+
+    outer_div.appendChild(link);
+    outer_div.appendChild(inner_div);    
+
+    return outer_div;
+  }
+  get_list(outlier, subgroup)
+  {
+    let list_obj = [];
+
+    let global_outlier = this.create_link("outliers", false, outlier.ids.length > 1);
+    global_outlier.dataset.type = ListItemTypes.GLOBAL_OUTLIER;
+    list_obj.push(global_outlier);
+    
+    //====================================================================================//
+    let groups = subgroup.global.filter(function(value, index, array){ return array.indexOf(value) === index; }).sort();        
+    let global_subgroup = this.create_submenu("subgroups", groups, "group ", ListItemTypes.GLOBAL_SUBGROUP);
+    list_obj.push(global_subgroup);    
+
+    //====================================================================================//
+    list_obj.push(this.create_split());
+    //====================================================================================//
+
+    let local_outlier = this.create_submenu("class outliers", outlier.local_labels, "", ListItemTypes.LOCAL_OUTLIER, ListItemIcon.LEAF);
+    list_obj.push(local_outlier);
+
+    //====================================================================================//
+    for(let split of this.create_split("class subgroups"))
+    {
+      list_obj.push(split)    
+    }    
+   //====================================================================================//
+    for(let idx = 0; idx < subgroup.local_labels.length; idx++)
+    {
+      groups = subgroup.local[idx].filter(function(value, index, array){ return array.indexOf(value) === index; }).sort();
+      let local_class = this.create_submenu(subgroup.local_labels[idx], groups, "group ", ListItemTypes.LOCAL_SUBGROUP, ListItemIcon.ROOT);
+
+      list_obj.push(local_class);
+    }    
+
+    //====================================================================================//
+    list_obj.push(this.create_split());
+    //====================================================================================//    
+    let clear = this.create_link("Clear selection");
+    clear.dataset.type = ListItemTypes.CLEAR_SELECTION;
+    list_obj.push(clear);
+
+
+    return list_obj;
+  }
+}
+
 class ScatterPlot extends MySVG 
 {
-  constructor(wrapper, tooltip) 
+  constructor(wrapper, tooltip, context) 
   {
-    super(wrapper, tooltip);
+    super(wrapper, tooltip, context);
     this.legend = null;
     this.circle_size = 3;
     this.legend_height = 20;
+    this.detector_list = new DetectorList();
     this.clear();
   }
   clear()
   {
     this.current_selected_class = [];
+    this.current_selected_outlier = [];
+    this.current_selected_subgroup = [];
     this.current_lasso_selection = [];
     super.clear();
   }    
@@ -136,11 +273,13 @@ class ScatterPlot extends MySVG
 
     this.legend.append("g");
   }
-  draw(data, data_summary, palette) 
+  draw(data, data_summary, palette, context_data) 
   {
     const _this = this;
     let label_list = [];
     this.svg = this.config_svg();
+    this.context_data = context_data;
+    this.detector_list.palette = palette;
 
     let group = this.svg.select("g").attr("class", "scatter-plot");
     let xScale = d3.scaleLinear([data_summary.min_x, data_summary.max_x], [this.circle_size, this.svg.attr("width") - this.circle_size]);
@@ -164,6 +303,11 @@ class ScatterPlot extends MySVG
     let lassoBrush = lasso()
       .items(group.selectAll("circle"))
       .targetArea(this.svg)
+      .on("start", function()
+      {
+        if(_this.context_menu.is_visible)
+          _this.context_menu.hide();        
+      })      
       .on("end", function () 
       {
         let ids = lassoBrush.selectedItems()["_groups"][0]
@@ -177,6 +321,81 @@ class ScatterPlot extends MySVG
         }
       });
     this.svg.call(lassoBrush);
+    this.svg.on("contextmenu", function(event, d)
+    {
+      event.preventDefault();
+
+      let items = _this.detector_list.get_list(_this.context_data.outlier, _this.context_data.subgroup);
+      _this.context_menu.show(items, [event.clientX, event.clientY]);
+
+      items = document.getElementsByClassName("context-item");
+
+      for(const item of items) 
+      {
+        item.addEventListener("click", function(event) 
+        {
+          event.preventDefault()
+          let text_ids = [];
+          _this.current_selected_outlier = [];
+          _this.current_selected_subgroup = [];
+
+          switch(event.target.dataset.type)
+          {
+            case ListItemTypes.GLOBAL_OUTLIER:
+            {
+              text_ids = _this.call_back.end(_this.context_data.outlier.ids, "outlier");
+              _this.current_selected_outlier = text_ids;
+              break;
+            }
+            case ListItemTypes.GLOBAL_SUBGROUP:
+            {
+              let global_group = _this.context_data.subgroup.ids
+                .filter(function(item, item_index){ return _this.context_data.subgroup.global[item_index] === +event.target.dataset.value; })
+                .sort();
+
+              text_ids = _this.call_back.end(global_group, "subgroup");
+              _this.current_selected_subgroup = text_ids;                
+              break;
+            }              
+            case ListItemTypes.LOCAL_OUTLIER:
+            {
+              let class_index = _this.context_data.outlier.local_labels.indexOf(event.target.dataset.value);
+
+              text_ids = _this.call_back.end(_this.context_data.outlier.local_ids[class_index], "outlier");
+              _this.current_selected_outlier = text_ids;
+              break;
+            }              
+            case ListItemTypes.LOCAL_SUBGROUP:
+            {
+              let class_index = _this.context_data.subgroup.local_labels.indexOf(event.target.dataset.parent);
+              let local_group = _this.context_data.subgroup.local_ids[class_index]
+                .filter(function(item, item_index){ return _this.context_data.subgroup.local[class_index][item_index] === +event.target.dataset.value; })
+                .sort();
+
+              text_ids = _this.call_back.end(local_group, "subgroup");
+              _this.current_selected_subgroup = text_ids;               
+              break;
+            }   
+            case ListItemTypes.CLEAR_SELECTION:
+            {
+              text_ids = _this.call_back.end([], "outlier");
+              text_ids = _this.call_back.end([], "subgroup");
+              _this.clear();
+              break;
+            }
+            default:
+              break;
+            }
+            
+          _this.context_menu.hide();
+          _this.select(text_ids);
+        });
+      }      
+    }).on("mousedown", function(event, d)
+    {
+      if(_this.context_menu.is_visible)
+        _this.context_menu.hide();
+    });
     this.draw_legend(label_list, palette);
   }
   draw_legend(label_list, palette) 
@@ -239,7 +458,10 @@ class ScatterPlot extends MySVG
         (this.current_lasso_selection.length > 0 && !this.current_lasso_selection.includes(obj.sentence_id)) ||
         (this.current_selected_class.length > 0 && !this.current_selected_class.includes(obj.label)))
       class_name += " scatter-unselected";
-
+    
+    if(this.current_selected_outlier.length > 0 && this.current_selected_outlier.includes(obj.sentence_id))
+      class_name += " scatter-outlier-selected";
+    
     return class_name;    
   }
   select(data, redraw = true) 
@@ -260,14 +482,14 @@ class ScatterPlot extends MySVG
 
 class WordCloud extends MySVG
 {
-  constructor(wrapper, tooltip) 
+  constructor(wrapper, tooltip, context) 
   {
-    super(wrapper, tooltip);
+    super(wrapper, tooltip, context);
     this.token_info = new TokenInfo();
     this.current_selected_word = null;
     this.placed_words = 0;
   }  
-  draw(data, data_summary, palette) 
+  draw(data, data_summary, palette, context_data) 
   {
     const _this = this;
     this.svg = this.config_svg();
@@ -354,9 +576,9 @@ class WordCloud extends MySVG
 
 class SankeyDiagram extends MySVG 
 {
-  constructor(wrapper, tooltip) 
+  constructor(wrapper, tooltip, context) 
   {
-    super(wrapper, tooltip);
+    super(wrapper, tooltip, context);
     this.group = null;
     this.token_info = new TokenInfo();
     this._total_links = 5;
@@ -500,7 +722,7 @@ class SankeyDiagram extends MySVG
       .attr("x", function(d) { return d.x1 + _this.margin.text_offset; })
       .attr("text-anchor", "start");                
   }
-  draw(data, data_summary, palette) 
+  draw(data, data_summary, palette, context_data) 
   {
     let token_selected = false;
     this.svg.select("g").selectAll("rect").each(function (obj, i, dom_obj_list) 
