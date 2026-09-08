@@ -71,3 +71,15 @@ def aggregate_feature_axis(text_token_feat, token_desc, aggregation = "norm"):
     text_token[key] = new_tensor
 
   return text_token, idx2tkn
+
+def centroid_avg_dist(data, model):
+  if hasattr(model, "cluster_centers_"):
+    centroids = model.cluster_centers_[model.labels_]
+  else:
+    item_clusters = model.labels_ + 1 if -1 in model.labels_ else model.labels_
+    unique_cluster = np.unique(item_clusters)
+
+    centroids = [ data[item_clusters == cluster].mean(axis=0) for cluster in unique_cluster ]
+    centroids = np.array(centroids)[item_clusters]  
+
+  return np.linalg.norm(data - centroids, axis=1).mean()

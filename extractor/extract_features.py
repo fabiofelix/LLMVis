@@ -6,10 +6,12 @@ import umap
 from sklearn.metrics import silhouette_score
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
+from sklearn.cluster import KMeans, DBSCAN
 
 from nlp import nltk_extract_entity
-from process import mean_pooling, tag_indexOf, aggregate_feature_axis
+from process import mean_pooling, tag_indexOf, aggregate_feature_axis, centroid_avg_dist
 from xai import MyLime, MyShap
+from detection import OutlierDetector, SubGroupDetector
 
 def extract_token_info(token_desc, token_pos, text_data):
   tokens = {}
@@ -151,6 +153,84 @@ def save_projection(args, text_feat, sentence_name, sentence_label, pattern_file
 
       np.savez(file_path, text_ids = sentence_name, projection = vis_proj, silhouette_score=sh, silhouette_score_original=sh_original)
 
+## outlier:     <dataset>-<number_samples>_<model>-b<model_block>_outlier_detection-<detector_name>.npz
+def save_outlier(args, text_feat, sentence_name, sentence_label, pattern_file, update = False):
+  print("|- Saving outliers (text)")
+
+  for key, txt_feat in text_feat.items():
+    file_path = pattern_file.format(key) + "_outlier_detection-{}.npz".format("iforest")
+    file_path = os.path.join(args.output_path, file_path)
+
+    sentence_feat = np.array(txt_feat)
+
+    ## 10 samples (1%) from 1000 samples in the tests
+    global_detector = OutlierDetector(random_state=utils.SEED_VALUE, outlier_size=0.01)
+    global_outliers = global_detector.fit_predict(sentence_feat)
+    global_outliers = np.where(global_outliers == -1)[0]
+    global_outliers = sentence_name[global_outliers]
+
+    ## a fixed quantity of 5 samples from each class 
+    local_detector = OutlierDetector(random_state=utils.SEED_VALUE, outlier_size=5)
+    local_outliers = []
+    local_labels = []
+
+    for label in np.unique(sentence_label):
+      local_labels.append(label)
+      
+      class_items = sentence_feat[sentence_label == label]
+      class_names = sentence_name[sentence_label == label]
+
+      local_out = local_detector.fit_predict(class_items)
+      local_out = np.where(local_out == -1)[0]
+      
+      local_outliers.append(class_names[local_out])
+
+    np.savez(file_path, 
+             text_ids = global_outliers, 
+             local_ids = np.array(local_outliers, dtype = object), 
+             local_labels = local_labels)
+
+## subgroup:    <dataset>-<number_samples>_<model>-b<model_block>_subgroup_detection-<cluster_name>.npz
+def save_subgroup(args, text_feat, sentence_name, sentence_label, pattern_file, update = False):
+  print("|- Saving subgroups (text)")
+
+  for key, txt_feat in text_feat.items():
+    file_path = pattern_file.format(key) + "_subgroup_detection-{}.npz".format("dbscan+kmeans")
+    file_path = os.path.join(args.output_path, file_path)
+
+    sentence_feat = np.array(txt_feat)
+  
+    global_detector = SubGroupDetector(KMeans, criterion = "silhouette", random_state = utils.SEED_VALUE)
+    global_subgroups = global_detector.fit_predict(sentence_feat)
+
+    sh = silhouette_score(sentence_feat, global_detector.model.labels_)
+    avg_dist = centroid_avg_dist(sentence_feat, global_detector.model)
+    subgroup_report = [[sh, avg_dist]]
+
+    local_detector = SubGroupDetector(DBSCAN)
+    local_subgroups = []
+    local_labels = []
+    local_text_ids = []
+
+    for label in np.unique(sentence_label):
+      local_labels.append(label)
+      local_text_ids.append(sentence_name[sentence_label == label])
+
+      class_items = sentence_feat[sentence_label == label]
+      print(f"|- class {label}")
+      local_subgroups.append( local_detector.fit_predict(class_items) )
+
+      sh = silhouette_score(class_items, local_detector.model.labels_)
+      avg_dist = centroid_avg_dist(class_items, local_detector.model)
+
+      subgroup_report.append([sh, avg_dist])
+
+    np.savez(file_path, 
+             text_ids = sentence_name, global_sub = global_subgroups, 
+             local_ids = np.array(local_text_ids, dtype = object), local_sub = np.array(local_subgroups, dtype = object), 
+             local_labels = local_labels,
+             group_report = subgroup_report)  
+
 ## text: <dataset>-<number_samples>_text.npz
 def save_text(args, text_data, pattern_file_data, update = False):
   print("|- Saving data text")
@@ -240,7 +320,10 @@ def run(args, parser):
   tkn_ids, stn_ids = save_token_info(args, token_desc, token_pos, text_data, idx2tkn, pattern_file_data_model)
 
   save_projection(args, text_feat, text_data.name.to_numpy(), labels, pattern_file_data_model_block)
-  save_explanation(args, text_token, tkn_ids, stn_ids, labels, pattern_file_data_model_block, row_ids=text_data.name.to_numpy())
+  save_explanation(args, text_token, tkn_ids, stn_ids, labels, pattern_file_data_model_block)
+
+  save_outlier(args, text_feat, text_data.name.to_numpy(), labels, pattern_file_data_model_block)
+  save_subgroup(args, text_feat, text_data.name.to_numpy(), labels, pattern_file_data_model_block)
   
   unique_token_desc = np.unique([desc for row in token_desc for desc in row])
   print("|- {} samples - {} tokens - {} (filtered stop-words)".format(text_data.shape[0], len(unique_token_desc), len(tkn_ids)))

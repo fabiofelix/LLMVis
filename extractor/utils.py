@@ -5,6 +5,7 @@ import sys
 import numba
 import numpy as np
 import re
+import inspect
 
 SEED_VALUE = 1537
 
@@ -61,6 +62,11 @@ def get_filtered_indices(x, lower_threshold = 1):
   filter = (x > np.max((min_value, 10**(q1 - multi_lower * iqr)))) & (x < np.min((max_value, 10**(q3 + multi_upper * iqr))))
 
   return np.where(filter)[0]
+
+def get_class_args(class_):
+  class_signature = inspect.signature(class_.__init__)
+
+  return [ arg for arg, _ in class_signature.parameters.items() ]
 
 ## reads a file with key-value map tokens
 ## one mapping pattern per line
