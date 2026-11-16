@@ -170,6 +170,19 @@ def process_subgroup(config, obj_path, dataset, model, obj_type, opt, opt_type):
     "group_report": data["group_report"].tolist(),
   }
 
+@app.route("/export", methods = ["POST"])
+def export():
+  file_path = "exported_ids.json"
+  print(f"|- Saving {file_path}")
+
+  export_json = request.get_json(force = True)
+  export_srt = json.dumps(export_json, indent=4)
+
+  with open(file_path, "w") as file:
+    file.write(export_srt)
+
+  return file_path
+
 @app.route("/filter", methods = ["POST"])
 def filter():
   filter_cfg = request.get_json(force = True)

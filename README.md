@@ -123,6 +123,7 @@ python extract_features.py -m 0 -d 3 -s data/amazon-fine-food-reviews.csv -o out
   * Texts: left-most bar color maps data classes (ground-truth)
     - Click on the title (text id + label) to (un)select the text
     - Selected outliers show a thicker black border
+    - Use the top-right menu to export the text IDs filtered by the tool (*selected_ids*). The saved file also has a section considering each filter separatedly for inspection (*filters*).
     - Use the top-right menu to clear all text selections
 
 ## **Basic code structure**

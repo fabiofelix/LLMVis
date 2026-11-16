@@ -379,6 +379,22 @@ class FilterManager
 
     return count;
   }
+  toJSON()
+  {
+    let key_list = Object.keys(this).filter(function(value) {  return value.includes("view_") && !value.includes("_position")  }); 
+    let json_output = {selected_ids: null, filters: {}};
+
+    if(this.count() > 0)
+      json_output["selected_ids"] = this.get_view();
+
+    for(let key of key_list)
+    {
+      if(this[key].length > 0)
+        json_output["filters"][key] = this[key].filter(function(value, index, array){ return array.indexOf(value) === index; });
+    }
+
+    return json_output;
+  }
 }
 
 class VisManager
@@ -1085,6 +1101,7 @@ class TextView extends VisManager
     });
 
     document.getElementById("clear_text_selection").addEventListener("click", function(event){ _this.clear_all(event) }); 
+    document.getElementById("export_selection").addEventListener("click", function(event){ _this.export_selections(event) }); 
   }
   build_header_msg(samples, desc)
   {
@@ -1161,6 +1178,26 @@ class TextView extends VisManager
     this.clear();
     this.set_header(this.build_header_msg(this.paginator.count_text));
   }
+  export_selections(event)
+  {
+    event.preventDefault();
+    let export_json = FILTER.toJSON();
+
+    if(export_json["selected_ids"] !== null)
+    {  
+      const URL = new Request("export", 
+      {
+        method: "POST",
+        body: JSON.stringify(export_json)
+      });    
+
+      fetch(URL)
+      .then(response => response.text())
+      .then(data => {
+        alert(`Saved filters and data IDs in:\n${data}`)
+      });      
+    }
+  }  
   drawer_callback(event)
   {
     event.preventDefault();
