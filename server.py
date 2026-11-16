@@ -246,21 +246,24 @@ def filter():
         subgroup = process_subgroup(config, obj_path, dataset, model, obj_type, opt, opt_type)        
 
 
+  print("|- Copying to projection")
+
   if proj is not None:
     if text is not None:
-      print("|- Copying text labels to projection")
+      print("|-- text labels")
       proj["label"] = text["data"]["label"]
 
     if outlier is not None:  
-      print("|- Copying outliers to projection")
+      print("|-- outliers")
       proj["outlier"] = outlier
 
     if subgroup is not None:
-      print("|- Copying subgroups to projection")
+      print("|-- subgroups")
       proj["subgroup"] = subgroup
 
   if tkn is not None and exp is not None:
-    print("|- Copying token info to explanation")
+    print("|- Copying to explanation")
+    print("|-- token info")
 
     for tkn_id in exp["data"]["tokens"]:
       idx = tkn["ids"].index(tkn_id)

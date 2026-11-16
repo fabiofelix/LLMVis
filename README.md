@@ -53,7 +53,7 @@ This repo contains a code implementation of the visualization tool proposed by a
 
   - [PaperAbstract](https://www.kaggle.com/datasets/blessondensil294/topic-modeling-for-research-articles) with paper abstracts
   - [TinyStories-V2](https://huggingface.co/datasets/roneneldan/TinyStories) (generated with GPT-4) with small children stories
-  - [BBCNews](http://mlg.ucd.ie/datasets/bbc.html)
+  - [BBCNews](http://mlg.ucd.ie/datasets/bbc.html) with articles from BBC News website.
   - [Amazon](http://snap.stanford.edu/data/web-FineFoods.html) with fine foods reviews
 
 4. Basic configurations
