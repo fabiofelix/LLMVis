@@ -483,7 +483,8 @@ class VisManager
   }
   clear()
   {
-    this.drawer.clear();
+    if(this.drawer !== null)
+      this.drawer.clear();
   }  
   drawer_callback(data)
   {

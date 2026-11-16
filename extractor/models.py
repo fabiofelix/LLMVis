@@ -73,7 +73,7 @@ class MyModelFamily():
 
     for text, tkn_id in zip(data, token_ids):
       text = self.normalize_str(text)
-      tkn_desc = self.tokenizer.batch_decode(tkn_id)
+      tkn_desc = self.tokenizer.batch_decode([ [id] for id in tkn_id ])
       first_idx = 0
       aux_token = []
       aux_pos = []
